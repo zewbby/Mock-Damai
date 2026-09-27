@@ -1,0 +1,55 @@
+@baseUrl = http://localhost:8081
+@targetQps = 1000
+@ticketCategoryId = 2
+@activityScopeKey = replace-with-activity-scope-key
+
+### 0. 管理员登录
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "phone": "13800000002",
+  "password": "Test123456"
+}
+
+> {%
+  client.global.set("adminToken", response.body.data.token);
+%}
+
+### 1. 健康检查
+GET {{baseUrl}}/actuator/health
+
+### 2. Micrometer 指标列表
+GET {{baseUrl}}/actuator/metrics
+
+### 3. 正式订单创建 Counter
+GET {{baseUrl}}/actuator/metrics/order.created.count
+
+### 4. 运维摘要
+GET {{baseUrl}}/api/admin/ops/metrics-summary
+Authorization: Bearer {{adminToken}}
+
+### 5. 当前订单流水线容量结构评估
+GET {{baseUrl}}/api/admin/ops/capacity/order-pipeline
+Authorization: Bearer {{adminToken}}
+
+### 6. 按目标 Submit QPS 生成容量压力计划
+### 这是配置结构评估，不等于真实 Benchmark 结果。
+GET {{baseUrl}}/api/admin/ops/capacity/order-pipeline/pressure-plan?targetQps={{targetQps}}
+Authorization: Bearer {{adminToken}}
+
+### 7. 预热订单提交元数据
+POST {{baseUrl}}/api/admin/ops/metadata-prewarm/order-submit
+Authorization: Bearer {{adminToken}}
+
+### 8. Waiting Room 批量放行
+POST {{baseUrl}}/api/admin/ops/waiting-room/admission-batches?ticketCategoryId={{ticketCategoryId}}&count=10
+Authorization: Bearer {{adminToken}}
+
+### 9. 临时关闭指定 activity scope 的订单提交
+POST {{baseUrl}}/api/admin/ops/degrade/order-submit?activityScopeKey={{activityScopeKey}}&ttlSeconds=300
+Authorization: Bearer {{adminToken}}
+
+### 10. 恢复指定 activity scope
+DELETE {{baseUrl}}/api/admin/ops/degrade/order-submit?activityScopeKey={{activityScopeKey}}
+Authorization: Bearer {{adminToken}}

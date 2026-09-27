@@ -2,29 +2,21 @@
 @showId = 1
 @sessionId = 1
 
-
-### 1. 查询演出列表
+### 1. 查询已发布演出
 GET {{baseUrl}}/api/shows
 
-
-### 2. 根据 ID 查询演出详情
-### 如果数据库里的演出 id 不是 1，请修改上面的 @showId
+### 2. 查询演出详情
 GET {{baseUrl}}/api/shows/{{showId}}
 
-
-### 3. 根据演出 ID 查询场次列表
-### 查看返回的 saleStartTime/saleEndTime；预约仅能在 saleStartTime 前编辑并完成
+### 3. 查询演出场次
+### 返回值中的 saleStartTime / saleEndTime 决定预约编辑和抢票窗口。
 GET {{baseUrl}}/api/shows/{{showId}}/sessions
 
-
-### 4. 根据场次 ID 查询票档列表
-### 如果数据库里的场次 id 不是 1，请修改上面的 @sessionId
+### 4. 查询场次票档
 GET {{baseUrl}}/api/sessions/{{sessionId}}/ticket-categories
 
+### 5. 重复查询可用于检查 show cache 行为
+GET {{baseUrl}}/api/shows/{{showId}}
 
-### 5. 查询不存在的演出详情
+### 6. 不存在的演出
 GET {{baseUrl}}/api/shows/999999
-
-
-### 6. 查询不存在演出的场次列表
-GET {{baseUrl}}/api/shows/999999/sessions

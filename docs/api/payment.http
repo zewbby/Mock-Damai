@@ -1,0 +1,59 @@
+@baseUrl = http://localhost:8081
+@orderId = replace-with-pending-payment-order-id
+@paymentNo = replace-after-create
+@timestamp = replace-with-current-millis
+@nonce = replace-with-random-nonce
+@signature = replace-with-hmac-sha256-signature
+
+### 1. 用户登录
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "phone": "13800000001",
+  "password": "Test123456"
+}
+
+> {%
+  client.global.set("userToken", response.body.data.token);
+%}
+
+### 2. 为本人 PENDING_PAYMENT 订单创建支付单
+POST {{baseUrl}}/api/payments/create
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "orderId": {{orderId}},
+  "channel": "MOCK"
+}
+
+> {%
+  client.global.set("paymentNo", response.body.data.paymentNo);
+%}
+
+### 3. 查询支付单
+GET {{baseUrl}}/api/payments/{{paymentNo}}
+Authorization: Bearer {{userToken}}
+
+### 4. mock-pay 成功回调
+### signature 原文按 paymentNo、success、timestamp、nonce 以换行符连接，
+### 使用 smart-ticket.payment.mock-callback-secret 做 HMAC-SHA256 后转十六进制。
+POST {{baseUrl}}/api/payments/mock-pay
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "paymentNo": "{{paymentNo}}",
+  "success": true,
+  "timestamp": {{timestamp}},
+  "nonce": "{{nonce}}",
+  "signature": "{{signature}}"
+}
+
+### 5. 查询订单，应收敛为 PAID
+GET {{baseUrl}}/api/orders/{{orderId}}
+Authorization: Bearer {{userToken}}
+
+### 说明
+### POST /api/orders/{id}/pay 已废弃，不能绕过 payment_order 直接修改订单状态。

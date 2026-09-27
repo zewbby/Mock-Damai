@@ -1,106 +1,66 @@
 @baseUrl = http://localhost:8081
-@phone = 13800000001
-@password = Test123456
-@token = paste-login-token-here
-@idempotencyToken = paste-idempotency-token-here
+@ticketCategoryId = 2
 @showId = 1
 @sessionId = 1
-@ticketCategoryId = 1
-@orderId = 1
-@paymentNo = PAY_PASTE_HERE
-@requestId = REQ_PASTE_HERE
+@orderId = replace-after-request-success
 
-
-### 0. 登录获取 token
+### 0.1 用户登录
 POST {{baseUrl}}/api/auth/login
 Content-Type: application/json
 
 {
-  "loginName": "{{phone}}",
-  "password": "{{password}}"
+  "phone": "13800000001",
+  "password": "Test123456"
 }
 
+> {%
+  client.global.set("userToken", response.body.data.token);
+%}
 
-### 1. 获取一次性下单幂等 token
+### 0.2 管理员登录
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "phone": "13800000002",
+  "password": "Test123456"
+}
+
+> {%
+  client.global.set("adminToken", response.body.data.token);
+%}
+
+### 1. 预热当前票档库存
+POST {{baseUrl}}/api/admin/ticket-categories/{{ticketCategoryId}}/stock/preheat
+Authorization: Bearer {{adminToken}}
+
+### 2. 默认 flash-sale 下先进入 Waiting Room
+POST {{baseUrl}}/api/waiting-room/queue?ticketCategoryId={{ticketCategoryId}}
+Authorization: Bearer {{userToken}}
+
+### 3. 管理员放行队首用户并发放 admissionToken
+POST {{baseUrl}}/api/admin/ops/waiting-room/admission-batches?ticketCategoryId={{ticketCategoryId}}&count=1
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.global.set("admissionToken", response.body.data[0].token);
+%}
+
+### 4. 用户查询 Waiting Room 状态；放行后 queued 应为 false
+GET {{baseUrl}}/api/waiting-room/status?ticketCategoryId={{ticketCategoryId}}
+Authorization: Bearer {{userToken}}
+
+### 5. 获取一次性下单幂等 Token
 GET {{baseUrl}}/api/orders/idempotency-token
-Authorization: Bearer {{token}}
+Authorization: Bearer {{userToken}}
 
+> {%
+  client.global.set("idempotencyToken", response.body.data.token);
+%}
 
-### 2. [已废弃] 同步创建订单，仅保留本地调试；高并发抢票不要使用这个接口
-POST {{baseUrl}}/api/orders
-Authorization: Bearer {{token}}
-Content-Type: application/json
-
-{
-  "showId": {{showId}},
-  "sessionId": {{sessionId}},
-  "ticketCategoryId": {{ticketCategoryId}},
-  "quantity": 1,
-  "idempotencyToken": "{{idempotencyToken}}"
-}
-
-
-### 3. 查询订单，必须只能查询当前登录用户自己的订单
-GET {{baseUrl}}/api/orders/{{orderId}}
-Authorization: Bearer {{token}}
-
-
-### 4. 查询当前登录用户订单列表
-GET {{baseUrl}}/api/users/me/orders
-Authorization: Bearer {{token}}
-
-
-### 5. 创建支付单，金额来自订单 totalAmount，不允许前端传金额
-POST {{baseUrl}}/api/payments/create
-Authorization: Bearer {{token}}
-Content-Type: application/json
-
-{
-  "orderId": {{orderId}},
-  "channel": "MOCK"
-}
-
-
-### 6. 查询自己的支付单
-GET {{baseUrl}}/api/payments/{{paymentNo}}
-Authorization: Bearer {{token}}
-
-
-### 7. mock-pay 支付成功，驱动订单 PAID 和库存 locked -> sold
-POST {{baseUrl}}/api/payments/mock-pay
-Authorization: Bearer {{token}}
-Content-Type: application/json
-
-{
-  "paymentNo": "{{paymentNo}}",
-  "success": true
-}
-
-
-### 8. 重复 mock-pay 成功，应幂等返回，不重复流转库存
-POST {{baseUrl}}/api/payments/mock-pay
-Authorization: Bearer {{token}}
-Content-Type: application/json
-
-{
-  "paymentNo": "{{paymentNo}}",
-  "success": true
-}
-
-
-### 9. 旧直接支付接口已废弃，应提示先创建支付单，不能绕过 payment_order
-POST {{baseUrl}}/api/orders/{{orderId}}/pay
-Authorization: Bearer {{token}}
-
-
-### 10. 取消订单，必须是当前登录用户自己的待支付订单，并关闭 INIT/PAYING 支付单
-POST {{baseUrl}}/api/orders/{{orderId}}/cancel
-Authorization: Bearer {{token}}
-
-
-### 11. 高并发购票主链路：异步下单，userId 来自 Bearer token，请求体不传 userId
+### 6. 提交异步抢票
 POST {{baseUrl}}/api/orders/async
-Authorization: Bearer {{token}}
+Authorization: Bearer {{userToken}}
 Content-Type: application/json
 
 {
@@ -108,10 +68,38 @@ Content-Type: application/json
   "sessionId": {{sessionId}},
   "ticketCategoryId": {{ticketCategoryId}},
   "quantity": 1,
-  "idempotencyToken": "{{idempotencyToken}}"
+  "idempotencyToken": "{{idempotencyToken}}",
+  "admissionToken": "{{admissionToken}}"
 }
 
+> {%
+  client.global.set("requestId", response.body.data.requestId);
+%}
 
-### 12. 查询异步下单结果，必须只能查询当前登录用户自己的 requestId
+### 7. 查询异步请求结果
+### 可能依次看到 PRE_DEDUCTED / QUEUED / PROCESSING，最终收敛到 SUCCESS、FAILED 或 COMPENSATED。
 GET {{baseUrl}}/api/order-requests/{{requestId}}
-Authorization: Bearer {{token}}
+Authorization: Bearer {{userToken}}
+
+> {%
+  if (response.body.data && response.body.data.orderId) {
+    client.global.set("orderId", response.body.data.orderId);
+  }
+%}
+
+### 8. SUCCESS 后查询正式订单
+GET {{baseUrl}}/api/orders/{{orderId}}
+Authorization: Bearer {{userToken}}
+
+### 9. 查询当前用户订单
+GET {{baseUrl}}/api/users/me/orders
+Authorization: Bearer {{userToken}}
+
+### 10. 取消仍处于 PENDING_PAYMENT 的订单
+POST {{baseUrl}}/api/orders/{{orderId}}/cancel
+Authorization: Bearer {{userToken}}
+
+### 说明
+### - POST /api/orders 已废弃，不进入当前样例。
+### - POST /api/orders/{id}/pay 已废弃；支付流程见 payment.http。
+### - admissionToken 与 idempotencyToken 都是一次性凭证，重复执行第 6 步前必须重新获取。

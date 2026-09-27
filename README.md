@@ -426,11 +426,7 @@ mysql -h 127.0.0.1 -P 3306 -u root -p smart_ticket_lite < docs/sql/schema.sql
 mysql -h 127.0.0.1 -P 3306 -u root -p smart_ticket_lite < docs/sql/data.sql
 ```
 
-如需补充索引，请先检查目标库现有索引，再执行：
-
-```text
-docs/sql/performance-indexes.sql
-```
+`schema.sql` 已包含当前新库所需索引，不再额外执行独立 performance-indexes 脚本。旧本地库升级和 SQL 文件职责见 [docs/sql/README.md](docs/sql/README.md)。
 
 ### 4. 本地配置
 
@@ -494,6 +490,9 @@ curl http://127.0.0.1:8081/actuator/health
 ```text
 /api/admin/**
 ```
+
+> `POST /api/orders` 已废弃，仅保留本地调试 / 历史兼容；高并发购票主链路只走 `POST /api/orders/async`。  
+> `POST /api/orders/{id}/pay` 同样是已废弃兼容入口，支付主链路使用 `payment_order`：先调用 `POST /api/payments/create`，再处理支付回调。
 
 ---
 

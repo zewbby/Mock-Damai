@@ -2,23 +2,23 @@
 @keyword = 周杰伦
 @showId = 1
 
-### 1. 搜索演出；搜索结果中的艺人会按搜索权重进入榜单
+### 1. 搜索演出
 GET {{baseUrl}}/api/search/shows?keyword={{keyword}}&limit=20
 
-### 2. 访问详情页；详情对应艺人会按详情点击权重进入榜单
+### 2. 访问演出详情
 GET {{baseUrl}}/api/shows/{{showId}}
 
-### 3. 查询本周艺人/乐队榜
-GET {{baseUrl}}/api/rankings/artists?period=weekly&limit=20
-
-### 4. 查询最近 24 小时热榜（小时桶聚合）
+### 3. 最近 24 小时热榜
 GET {{baseUrl}}/api/rankings/artists?period=hot&limit=20
 
-### 5. 查询今日艺人/乐队榜
+### 4. 今日榜
 GET {{baseUrl}}/api/rankings/artists?period=daily&limit=20
 
-### 6. 查询本月艺人/乐队榜
+### 5. 本周榜
+GET {{baseUrl}}/api/rankings/artists?period=weekly&limit=20
+
+### 6. 本月榜
 GET {{baseUrl}}/api/rankings/artists?period=monthly&limit=20
 
-### 7. 查询累计榜
+### 7. 累计榜
 GET {{baseUrl}}/api/rankings/artists?period=all&limit=20

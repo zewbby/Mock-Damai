@@ -1,137 +1,138 @@
 @baseUrl = http://localhost:8081
-@token = paste-login-token-here
 @showId = 1
 @sessionId = 1
 @ticketCategoryId = 2
-@audienceId1 = 1
-@audienceId2 = 2
-@audienceId3 = 3
-@planId = 1
-@planVersion = 0
-@idempotencyToken = paste-one-time-token-from-idempotency-token-response-here
-@requestId = paste-request-id-from-submit-response-here
-@orderId = paste-order-id-here
+@idNo = 110101199001011234
 
-### 1. 创建实名观演人（长期保存，证件号服务端加密）
+### 0.1 用户登录
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "phone": "13800000001",
+  "password": "Test123456"
+}
+
+> {%
+  client.global.set("userToken", response.body.data.token);
+%}
+
+### 0.2 管理员登录
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "phone": "13800000002",
+  "password": "Test123456"
+}
+
+> {%
+  client.global.set("adminToken", response.body.data.token);
+%}
+
+### 1. 创建实名观演人
+### 若固定证件号已存在，请替换 @idNo。
 POST {{baseUrl}}/api/audiences
-Authorization: Bearer {{token}}
+Authorization: Bearer {{userToken}}
 Content-Type: application/json
 
 {
   "name": "张三",
   "idType": "ID_CARD",
-  "idNo": "110101199001011234"
+  "idNo": "{{idNo}}"
 }
 
-### 2. 开售前从演出详情页创建预约计划，默认观演人用于预填
-### 预约只是填单方案，不占库存、不锁定价格，也不保证开售时有票
+> {%
+  client.global.set("audienceId", response.body.data.id);
+%}
+
+### 2. 创建预约计划；此时不占库存
 POST {{baseUrl}}/api/purchase-plans
-Authorization: Bearer {{token}}
+Authorization: Bearer {{userToken}}
 Content-Type: application/json
 
 {
   "showId": {{showId}},
-  "defaultAudienceIds": [{{audienceId1}}, {{audienceId2}}, {{audienceId3}}]
+  "defaultAudienceIds": [{{audienceId}}]
 }
 
-### 2.1 查看当前用户预约计划及状态
-GET {{baseUrl}}/api/purchase-plans?limit=20
-Authorization: Bearer {{token}}
+> {%
+  client.global.set("planId", response.body.data.id);
+  client.global.set("planVersion", response.body.data.version);
+%}
 
-### 2.2 查看单个预约计划（包括当前状态和版本）
-GET {{baseUrl}}/api/purchase-plans/{{planId}}
-Authorization: Bearer {{token}}
-
-### 3. 开售前选择或修改场次、票档和购票数量
-### 修改任何方案字段都会使已完成版本失效，需重新完成预约
+### 3. 设置场次、票档和数量
 PUT {{baseUrl}}/api/purchase-plans/{{planId}}/spec
-Authorization: Bearer {{token}}
+Authorization: Bearer {{userToken}}
 Content-Type: application/json
 
 {
-  "sessionId": {{sessionId}},
-  "ticketCategoryId": {{ticketCategoryId}},
-  "quantity": 3,
-  "version": {{planVersion}}
-}
-
-### 4. 观演人数量必须严格等于购票数量；开售前可修改
-### 本例 spec 更新后 version 为 1；若替换观演人，请传最新版本
-PUT {{baseUrl}}/api/purchase-plans/{{planId}}/audiences
-Authorization: Bearer {{token}}
-Content-Type: application/json
-
-{
-  "audienceIds": [{{audienceId1}}, {{audienceId2}}, {{audienceId3}}],
-  "version": 1
-}
-
-### 5. 开售前明确完成预约：只完成方案并冻结观演人身份快照
-### 不创建抢票请求、不预扣或占用库存；本例 audiences 更新后 version 为 2
-POST {{baseUrl}}/api/purchase-plans/{{planId}}/complete
-Authorization: Bearer {{token}}
-Content-Type: application/json
-
-{
-  "version": 2
-}
-
-### 5.1 开售后提交前获取一次性幂等 token
-GET {{baseUrl}}/api/orders/idempotency-token
-Authorization: Bearer {{token}}
-
-### 6. 开售后手动提交预约抢票
-### 仅传服务端方案版本、一次性幂等 token 和可选准入 token；不要传 audienceIds/场次/票档/数量
-### 服务端从已完成预约读取场次、票档、数量和冻结观演人快照
-### 完成预约不保证库存或价格，提交仍会校验开售窗口、票档和实时库存
-POST {{baseUrl}}/api/purchase-plans/{{planId}}/submit
-Authorization: Bearer {{token}}
-Content-Type: application/json
-
-{
-  "version": 3,
-  "idempotencyToken": "{{idempotencyToken}}"
-}
-
-### 7. 查询异步抢票/创单结果；把 submit 响应中的 requestId 填入 @requestId
-GET {{baseUrl}}/api/order-requests/{{requestId}}
-Authorization: Bearer {{token}}
-
-### 7.1 查询预约计划状态；请求绑定或发送结果不确定时可能为 RECONCILIATION_REQUIRED
-GET {{baseUrl}}/api/purchase-plans/{{planId}}
-Authorization: Bearer {{token}}
-
-### RECONCILIATION_REQUIRED 时不要换 token 重新提交或盲目重试，等待服务端对账收敛后再处理
-
-### 8. 预约提交成功创建正式订单后再创建支付单（金额以正式订单快照为准）
-POST {{baseUrl}}/api/payments/create
-Authorization: Bearer {{token}}
-Content-Type: application/json
-
-{
-  "orderId": {{orderId}},
-  "channel": "MOCK"
-}
-
-### 9. 没有开售前完成预约，或预约已过期时，开售后走普通抢票接口
-### 普通抢票同样返回 requestId，并经异步下单主链路处理；不享受预约自动填单
-POST {{baseUrl}}/api/orders/async
-Authorization: Bearer {{token}}
-Content-Type: application/json
-
-{
-  "showId": {{showId}},
   "sessionId": {{sessionId}},
   "ticketCategoryId": {{ticketCategoryId}},
   "quantity": 1,
-  "idempotencyToken": "paste-one-time-order-token-here"
+  "version": {{planVersion}}
 }
 
-### 10. 取消尚未创单的可编辑预约计划（按当前版本号）
-POST {{baseUrl}}/api/purchase-plans/{{planId}}/cancel
-Authorization: Bearer {{token}}
+> {%
+  client.global.set("planVersion", response.body.data.version);
+%}
+
+### 4. 明确完成预约；只冻结方案和观演人快照，不占库存
+POST {{baseUrl}}/api/purchase-plans/{{planId}}/complete
+Authorization: Bearer {{userToken}}
 Content-Type: application/json
 
 {
-  "version": 3
+  "version": {{planVersion}}
 }
+
+> {%
+  client.global.set("planVersion", response.body.data.version);
+%}
+
+### 5. 开售后进入 Waiting Room
+POST {{baseUrl}}/api/waiting-room/queue?ticketCategoryId={{ticketCategoryId}}
+Authorization: Bearer {{userToken}}
+
+### 6. 管理员放行并发放 admissionToken
+POST {{baseUrl}}/api/admin/ops/waiting-room/admission-batches?ticketCategoryId={{ticketCategoryId}}&count=1
+Authorization: Bearer {{adminToken}}
+
+> {%
+  client.global.set("admissionToken", response.body.data[0].token);
+%}
+
+### 7. 获取一次性幂等 Token
+GET {{baseUrl}}/api/orders/idempotency-token
+Authorization: Bearer {{userToken}}
+
+> {%
+  client.global.set("idempotencyToken", response.body.data.token);
+%}
+
+### 8. 手动提交预约抢票
+POST {{baseUrl}}/api/purchase-plans/{{planId}}/submit
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "version": {{planVersion}},
+  "idempotencyToken": "{{idempotencyToken}}",
+  "admissionToken": "{{admissionToken}}"
+}
+
+> {%
+  client.global.set("requestId", response.body.data.requestId);
+%}
+
+### 9. 查询异步创单结果
+GET {{baseUrl}}/api/order-requests/{{requestId}}
+Authorization: Bearer {{userToken}}
+
+### 10. 查询预约计划状态
+GET {{baseUrl}}/api/purchase-plans/{{planId}}
+Authorization: Bearer {{userToken}}
+
+### 说明
+### READY / SUBMITTING / RECONCILIATION_REQUIRED 状态下不要换 Token 盲目重提。
+### 预约只是开售前填单方案，不保证库存、价格或最终抢票成功。
