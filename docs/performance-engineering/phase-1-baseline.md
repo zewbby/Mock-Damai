@@ -149,11 +149,12 @@ SMART_TICKET_WAITING_ROOM_ENABLED=false
 SMART_TICKET_RATE_LIMIT_ENABLED=false
 SMART_TICKET_RISK_CONTROL_ENABLED=false
 SMART_TICKET_ACTIVITY_ISOLATION_ENABLED=false
-SMART_TICKET_ASYNC_ORDER_IN_FLIGHT_CONTROL_ENABLED=false
 SMART_TICKET_RATE_LIMIT_BACKPRESSURE_ENABLED=false
 ```
 
-原因是这些模块会在核心交易链路真正达到瓶颈之前主动拒绝或削减流量，导致无法观察自然容量边界。
+原因是这些入口治理模块会在核心交易链路真正达到瓶颈之前主动拒绝或削减流量，导致无法观察自然容量边界。
+
+In-Flight Control 是例外：当前 `flash-sale` profile 的 `AsyncOrderSubmitGuardrail` 强制要求它开启，并要求单票档上限至少为 `50000`。因此 Capacity Baseline 保持 In-Flight Control 开启，并冻结一个足够高、不会在预期测试区间内先触发的阈值；不能通过关闭它来绕过 Guardrail。
 
 Capacity Baseline 允许出现：
 
