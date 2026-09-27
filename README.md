@@ -566,7 +566,7 @@ scripts/jmeter/
 scripts/load/
 ```
 
-正式压测方案见 [formal-jmeter-pressure-test-plan.md](docs/performance/formal-jmeter-pressure-test-plan.md)。
+当前性能测试入口见 [docs/performance/README.md](docs/performance/README.md)。
 
 重点关注：
 

@@ -9,7 +9,7 @@ Mock-Damai 的文档按用途分目录。运行时依赖的 SQL、接口调试�
 | [`architecture/`](architecture/) | 系统流程、领域设计和架构说明 |
 | [`adr/`](adr/) | 已确认的架构决策记录 |
 | [`api/`](api/) | HTTP 调试请求，见 [`api/README.md`](api/README.md) |
-| [`performance/`](performance/) | JMeter 运行指南、正式压测计划和结果模板 |
+| [`performance/`](performance/) | 当前性能测试入口、Phase 1 口径与结果记录规则 |
 | [`sql/`](sql/) | 建表、初始化数据、索引和本地修复脚本 |
 | [`superpowers/plans/`](superpowers/plans/) | 开发过程计划，不是运行时文档 |
 
@@ -22,7 +22,7 @@ Mock-Damai 的文档按用途分目录。运行时依赖的 SQL、接口调试�
 - [预约与抢票提交分离 ADR](adr/0001-预约与抢票提交分离.md)：已采纳的架构决策。
 - [预约计划接口样例](api/purchase-plan.http)：从观演人选择到开售后提交抢票。
 - [API 调试索引](api/README.md)：当前接口和历史兼容样例的分类入口。
-- [正式 JMeter 压测计划](performance/formal-jmeter-pressure-test-plan.md)：正式压测前的环境与执行要求。
+- [性能测试入口](performance/README.md)：当前 Phase 1 计划、运行口径、指标定义和结果记录规则。
 - [测试目录说明](../src/test/README.md)：测试分类、资源依赖和运行边界。
 
 ## 文档规则
