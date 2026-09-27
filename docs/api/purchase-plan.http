@@ -30,6 +30,11 @@ Content-Type: application/json
   client.global.set("adminToken", response.body.data.token);
 %}
 
+### 0.3 预热票档库存
+### Purchase Plan 完成阶段不占库存，但开售后的 submit 会进入真实 Redis 预扣链路。
+POST {{baseUrl}}/api/admin/ticket-categories/{{ticketCategoryId}}/stock/preheat
+Authorization: Bearer {{adminToken}}
+
 ### 1. 创建实名观演人
 ### 若固定证件号已存在，请替换 @idNo。
 POST {{baseUrl}}/api/audiences
@@ -90,7 +95,9 @@ Content-Type: application/json
   client.global.set("planVersion", response.body.data.version);
 %}
 
-### 5. 开售后进入 Waiting Room
+### 5. 到达 saleStartTime 后进入 Waiting Room
+### docs/sql/data.sql 当前样例场次用于“开售前预约”演示；若本地时间尚未进入销售窗口，
+### 请使用后台接口创建/调整一个已开售场次，或在仅用于本地测试的数据中调整 sale_start_time / sale_end_time。
 POST {{baseUrl}}/api/waiting-room/queue?ticketCategoryId={{ticketCategoryId}}
 Authorization: Bearer {{userToken}}
 
