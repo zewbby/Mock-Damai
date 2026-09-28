@@ -7,7 +7,7 @@
 | 目的 | 文件 |
 | --- | --- |
 | Closed-loop Preflight | `scripts/load/run-preflight-jmeter.sh` + `scripts/jmeter/async-order-closed-loop.jmx` |
-| Formal Open-loop Baseline | `scripts/load/run-async-order-jmeter.sh` + `scripts/jmeter/async-order-open-loop.jmx` |
+| Formal Target-Rate Baseline | `scripts/load/run-async-order-jmeter.sh` + `scripts/jmeter/async-order-target-rate.jmx` |
 | 数据准备 | `scripts/load/prepare-async-order-jmeter-data.sh` |
 | 环境重置 | `scripts/load/reset-load-test-env.sh` |
 | Submit 指标摘要 | `scripts/load/summarize-jmeter-result.py` |
@@ -48,7 +48,7 @@ Preflight 使用 **Closed-loop**：不设置目标 QPS，由线程数驱动并�
 Q_start ≈ round_practical(Q_probe_peak × 0.50)
 ```
 
-正式 Baseline 使用 **Open-loop**，围绕容量边界设置目标 QPS，而不是从任意固定的 10 / 20 / 50 / 100 / 200 QPS 开始。
+正式 Baseline 使用 **Target-Rate**。JMeter Constant Throughput Timer 是有限线程下的目标速率近似，不是严格 open workload；必须同时记录 TARGET_QPS 与实际 attempt TPS，偏差超过 5% 的 Run 不能描述为准确命中目标速率。
 
 ## 数据准备
 
@@ -75,7 +75,7 @@ WAITING_ROOM_ENABLED=false
 | Oversell | 必须为 `0` |
 | Convergence | 请求状态、MQ 积压和 Redis / MySQL 库存最终收敛时间 |
 
-JMeter HTML 的 All Samples 包含幂等 Token 请求，不能直接当 Submit TPS。正式 HTTP 侧摘要使用：
+JMeter HTML 的 All Samples 包含幂等 Token 请求，不能直接当 Submit TPS。当前 V1 每次 Submit 前仍获取一次幂等 Token，因此 SUT 总 HTTP 压力高于 Submit QPS；摘要会同时报告 Token 请求速率与 Target 命中率。正式 HTTP 侧摘要使用：
 
 ```bash
 python3 scripts/load/summarize-jmeter-result.py reports/.../result.jtl

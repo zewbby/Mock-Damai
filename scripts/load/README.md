@@ -1,120 +1,112 @@
 # Load Test Scripts
 
-本目录只保留当前性能工程需要的可执行资产。不要再按“本机 300 / 2000 / 5000 / 10000 QPS 档位”理解系统容量。
+本目录只保留当前 Performance Engineering / Phase 1 需要的可执行资产。脚本参数不是容量结论；正式结果必须由 Preflight、Target-Rate Run 和 SUT 指标共同解释。
 
-## 职责
+## 文件职责
 
-| 文件 | 职责 | 推荐运行位置 |
+| 文件 | 处理 | 职责 |
 | --- | --- | --- |
-| `ensure-load-users.sh` | 准备可复用压测用户池 | Load Generator 或能访问 SUT HTTP 的机器 |
-| `prepare-async-order-jmeter-data.sh` | 登录用户并生成 JMeter CSV；Capacity Baseline 默认不生成 Waiting Room Token | Load Generator |
-| `run-preflight-jmeter.sh` | Closed-loop Preflight，按线程阶梯估算 `Q_probe_peak` | Mac Load Generator |
-| `run-async-order-jmeter.sh` | Open-loop 正式 Baseline，显式指定目标 QPS | Mac Load Generator |
-| `summarize-jmeter-result.py` | 只统计 `02 提交异步下单请求` 的 Submit TPS / P95 / P99 | Load Generator |
-| `reset-load-test-env.sh` | 清理交易数据、重置库存、清 Redis、重新预热 | 能直连 SUT MySQL / Redis / API 的准备机 |
-| `prepare-soldout-flood-env.sh` | Flash-Sale 售罄洪峰环境准备 | 能直连 SUT MySQL / Redis / API 的准备机 |
-| `run-soldout-flood-jmeter.sh` | Flash-Sale Baseline 的售罄洪峰入口压力 | Load Generator |
-
-旧 `run-burst-order-jmeter.sh` 已删除。固定机器档位会把“脚本预设值”误当成系统容量，与 Phase 1 的 Preflight 方法冲突。
-
-## 两机环境的准备位置
-
-正式 Baseline 的 Load Generator 是 Mac，SUT 是 Windows，但环境准备脚本不要求必须在 Windows Bash 环境执行。
-
-推荐：
-
-- 如果 Mac 能访问 Windows 上的 MySQL、Redis 和应用端口：在 Mac 设置 `DB_HOST`、`REDIS_HOST`、`BASE_URL` 后直接执行准备脚本；
-- 如果数据库或 Redis 只监听 Windows 本机：在 Windows 的 WSL / Git Bash 中执行环境准备；
-- Flash-Sale 准备脚本会生成 `/tmp/async-order-users-formal.csv`。若它在 SUT 侧生成，正式压测前必须把该 CSV 复制到 Mac Load Generator，并通过 `DATA_FILE` 指向实际路径。
-
-Capacity Baseline 关闭 Waiting Room 后，普通 CSV 准备不需要直连 Redis，因此通常可以直接在 Mac Load Generator 上完成。
-
+| `ensure-load-users.sh` | 保留 | 准备可复用压测用户池 |
+| `prepare-async-order-jmeter-data.sh` | 保留 | 登录用户并生成 CSV；Capacity Baseline 不生成 admissionToken |
+| `run-preflight-jmeter.sh` | 重写 | Closed-loop Preflight，显式线程数，估算 `Q_probe_peak` |
+| `run-async-order-jmeter.sh` | 重写 | Formal Target-Rate Capacity Baseline |
+| `summarize-jmeter-result.py` | 重写 | Submit TPS、延迟、Target 命中率和 Token 辅助流量 |
+| `reset-load-test-env.sh` | 重写 | 清交易状态，通过当前库存初始化接口重建 bucket |
+| `prepare-soldout-flood-env.sh` | 重写 | 按显式 Flash-Sale 参数准备库存、用户和 admissionToken |
+| `run-soldout-flood-jmeter.sh` | 重写 | Flash-Sale Sold-Out Flood；不再内置固定压力档 |
 
 ## JMeter 计划
 
-- `scripts/jmeter/async-order-closed-loop.jmx`：Preflight；无吞吐 Timer，CSV 可循环复用用户池。
-- `scripts/jmeter/async-order-open-loop.jmx`：正式目标 QPS；Constant Throughput Timer 只限制异步提交 sampler。
+- `scripts/jmeter/async-order-closed-loop.jmx`：Preflight，没有吞吐 Timer。
+- `scripts/jmeter/async-order-target-rate.jmx`：正式目标速率，Constant Throughput Timer 只作用于 `02 提交异步下单请求`。
 
-两个计划默认都关闭结果轮询，且 GUI Listener 默认禁用。
+旧 `async-order-open-loop.jmx` 已删除。Constant Throughput Timer + 有限线程只能做 rate-controlled approximation，不应表述成严格 Open Loop。
 
-## Capacity Baseline 数据准备
+两个 JMX 直接在 GUI 打开时只保留安全 Smoke 默认值：1 thread、短时运行；Target-Rate 默认约 1 QPS。正式性能测试必须通过 runner 显式传参。
 
-用户池：
+## Capacity Baseline 固定规则
 
 ```text
 USER_COUNT >= max(1000, THREADS × 4)
-```
-
-正式 Open-loop：
-
-```text
-EXPECTED_REQUESTS = TARGET_QPS × DURATION_SECONDS
-ROWS >= ceil(EXPECTED_REQUESTS × 1.20)
-STOCK >= ceil(ROWS × 1.10)
+ROWS >= ceil(TARGET_QPS × DURATION_SECONDS × 1.20)
+STOCK >= ceil(ROWS × QUANTITY × 1.10)
 QUANTITY = 1
 WAITING_ROOM_ENABLED = false
 POLL_RESULT = false
 ```
 
-例子中的 QPS 不在脚本里写死。先执行 Preflight，再由 `Q_probe_peak` 决定正式 `Q_start`。
+Formal runner 会检查 CSV 中不同 authToken 的数量以及 20% 行数余量。
 
 ## Preflight
 
-先准备用户池 CSV：
-
 ```bash
-USER_COUNT=1000 \
-ROWS=1000 \
-QUANTITY=1 \
-WAITING_ROOM_ENABLED=false \
+USER_COUNT=1000 ROWS=1000 QUANTITY=1 WAITING_ROOM_ENABLED=false \
 OUT_FILE=/tmp/async-order-users-preflight.csv \
 ./scripts/load/prepare-async-order-jmeter-data.sh
-```
 
-再按线程阶梯执行：
-
-```bash
 THREADS=32  ./scripts/load/run-preflight-jmeter.sh
 THREADS=64  ./scripts/load/run-preflight-jmeter.sh
 THREADS=128 ./scripts/load/run-preflight-jmeter.sh
 ```
 
-只有前一档仍明显线性增长时才继续更高线程。
+Preflight 默认 Ramp-up 10s、Warm-up 20s、Measure 40s。只有前一档仍明显增长时才继续更高线程。
 
-## Formal Open-Loop
+## Formal Target-Rate
 
-根据 Preflight 得到 `Q_probe_peak` 后，计算正式起点约为：
+由 `Q_probe_peak` 决定正式起点：
 
 ```text
 Q_start ≈ 0.50 × Q_probe_peak
 ```
 
-准备对应 CSV 后显式运行：
+正式运行必须显式传入参数：
 
 ```bash
-THREADS=<本档线程数> \
-TARGET_QPS=<本档目标QPS> \
-DURATION_SECONDS=180 \
+THREADS=<线程数> TARGET_QPS=<目标Submit QPS> \
+RAMP_SECONDS=30 WARMUP_SECONDS=30 DURATION_SECONDS=180 \
 ./scripts/load/run-async-order-jmeter.sh
 ```
 
-脚本不会提供一个“看起来合理”的默认 TARGET_QPS，避免把默认值误认为容量结论。
+`WARMUP_SECONDS` 必须至少覆盖 Ramp-up，并小于总 Duration。统计脚本会排除 Warm-up。
+
+Constant Throughput Timer 不是严格 open workload。结果必须同时记录 `TARGET_QPS`、`attempt_tps`、`target_achievement_percent`。偏差超过 5% 时摘要会给 warning。
+
+## 幂等 Token 流量
+
+Phase 1 V1 仍采用：
+
+```text
+GET /api/orders/idempotency-token
+↓
+POST /api/orders/async
+```
+
+因此 Submit 指标只统计第二步，但 SUT 实际还承受约同量级的 Token HTTP / Redis 写流量。`Q_probe_peak` 是这套请求模型下的容量数量级，不是隔离 Submit 接口后的理论上限。
+
+## 环境重置
+
+`reset-load-test-env.sh` 不再按 `bucket_version=1` 自己分配 bucket。它清理交易状态和目标票档旧 bucket 后，调用当前库存初始化接口，让应用按实际 `activeVersion + defaultBucketCount` 重建并预热。
+
+Capacity Baseline 默认保留生成好的 CSV；Flash-Sale admissionToken 是一次性的，每轮仍必须重新生成。
+
+## Flash-Sale Sold-Out Flood
+
+Flash-Sale 不再内置库存、请求量或 QPS 默认场景。准备和执行时显式传参数：
+
+```bash
+STOCK_QUANTITY=<库存> USER_COUNT=<用户池> THREADS=<线程数> \
+TARGET_QPS=<目标Submit QPS> DURATION_SECONDS=<秒数> \
+./scripts/load/prepare-soldout-flood-env.sh
+
+STOCK_QUANTITY=<同一库存> ORDER_QUANTITY=1 THREADS=<同一线程数> \
+TARGET_QPS=<同一目标QPS> DURATION_SECONDS=<同一秒数> \
+./scripts/load/run-soldout-flood-jmeter.sh
+```
 
 ## 结果口径
 
-JMeter HTML 仍保留完整请求视图，但正式 Submit TPS 不使用 All Samples。
+`summarize-jmeter-result.py` 以 `02 提交异步下单请求` 计算 Submit 延迟和吞吐，同时报告 `01 获取下单幂等 Token` 的辅助请求速率。
 
-`summarize-jmeter-result.py` 只读取：
+JMeter 不能替代 SUT 指标。正式结果仍需单独采集 Order Creation TPS、RocketMQ Accumulation、Redis/MySQL/JVM 资源、请求最终状态、库存一致性和 Oversell Count。
 
-```text
-02 提交异步下单请求
-```
-
-并输出：
-
-- attempt TPS；
-- accepted Submit TPS；
-- Error Rate；
-- P50 / P95 / P99 / Max。
-
-Order Creation TPS、RocketMQ Accumulation、Redis / MySQL / JVM 指标必须单独采集，不能从 JMeter Submit TPS 推导。
+大型 JTL、HTML 和日志继续放在 `reports/`，不提交仓库。
