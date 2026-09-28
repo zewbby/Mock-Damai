@@ -16,6 +16,10 @@ smart-ticket:
     delay-message-enabled: false
     publisher-mode: outbox
 
+  # 集成测试不启动 RocketMQ 支付补偿 listener / publisher；对应 adapter 由单元测试覆盖。
+  payment-compensation:
+    enabled: false
+
   # 避免支付/订单集成测试额外生成领域事件 Outbox 噪音。
   domain-event:
     enabled: false
