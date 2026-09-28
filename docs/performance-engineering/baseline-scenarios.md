@@ -186,22 +186,27 @@ scripts/jmeter/async-order-closed-loop.jmx
 - `POLL_RESULT=false`；
 - 只用于估算 `Q_probe_peak`，不进入正式 Benchmark。
 
-### Formal Open-loop
+### Formal Target-Rate
 
 执行资产：
 
 ```text
 scripts/load/run-async-order-jmeter.sh
-scripts/jmeter/async-order-open-loop.jmx
+scripts/jmeter/async-order-target-rate.jmx
 ```
 
 特点：
 
 - TARGET_QPS 必须显式传入；
 - Constant Throughput Timer 只控制异步提交 sampler；
+- 这是有限线程下的 Target-Rate 近似，不是严格 open workload；正式结果必须同时记录 TARGET_QPS 与实际 attempt TPS；
 - CSV `recycle=false`；
 - 正式运行默认不轮询异步结果；
 - CSV 行数至少覆盖理论请求量，仍建议保留 20% 余量。
+
+### 幂等 Token 辅助流量
+
+Phase 1 V1 每个 Submit 前仍执行一次 `GET /api/orders/idempotency-token`。因此 Submit TPS 只统计异步提交 sampler，但 SUT 还承受约同量级的 Token HTTP / Redis 写流量。`Q_probe_peak` 描述的是这套请求模型下的容量数量级，不等于隔离 Submit 接口后的理论上限。
 
 ### HTTP 结果摘要
 

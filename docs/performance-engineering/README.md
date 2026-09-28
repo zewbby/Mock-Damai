@@ -49,7 +49,7 @@
 Phase 1 可执行资产已经完成第一轮重构：
 
 - `async-order-closed-loop.jmx` + `run-preflight-jmeter.sh`：Preflight；
-- `async-order-open-loop.jmx` + `run-async-order-jmeter.sh`：Formal Baseline；
+- `async-order-target-rate.jmx` + `run-async-order-jmeter.sh`：Formal Target-Rate Baseline；
 - `prepare-async-order-jmeter-data.sh`：按 Waiting Room 开关准备数据；
 - `summarize-jmeter-result.py`：只统计异步提交 sampler。
 

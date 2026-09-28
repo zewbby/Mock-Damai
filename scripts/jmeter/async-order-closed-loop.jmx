@@ -2,7 +2,7 @@
 <jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
   <hashTree>
     <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Mock-Damai 异步下单 Closed-Loop Preflight">
-      <stringProp name="TestPlan.comments">Closed-loop Preflight：线程数决定并发，不设置目标 QPS；用于估算容量数量级，不进入正式 Benchmark。结果轮询默认关闭。当前默认交易命令链路为 RocketMQ Transaction Message。</stringProp>
+      <stringProp name="TestPlan.comments">Closed-loop Preflight：线程数决定并发，不设置目标 QPS；用于估算容量数量级，不进入正式 Benchmark。每次提交前仍获取一次性幂等 Token，因此该探测包含 Token 发行开销。结果轮询关闭。当前默认交易命令链路为 RocketMQ Transaction Message。</stringProp>
       <boolProp name="TestPlan.tearDown_on_shutdown">true</boolProp>
       <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="用户变量">
         <collectionProp name="Arguments.arguments">
@@ -13,7 +13,7 @@
           </elementProp>
           <elementProp name="data_file" elementType="Argument">
             <stringProp name="Argument.name">data_file</stringProp>
-            <stringProp name="Argument.value">${__P(data_file,/tmp/async-order-users-formal.csv)}</stringProp>
+            <stringProp name="Argument.value">${__P(data_file,scripts/jmeter/data/async-order-users.csv)}</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
           <elementProp name="risk_decision" elementType="Argument">
@@ -128,9 +128,9 @@
         </hashTree>
       </hashTree>
       <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="异步下单压测线程组">
-        <stringProp name="ThreadGroup.num_threads">${__P(threads,100)}</stringProp>
+        <stringProp name="ThreadGroup.num_threads">${__P(threads,1)}</stringProp>
         <stringProp name="ThreadGroup.ramp_time">${__P(ramp_seconds,1)}</stringProp>
-        <stringProp name="ThreadGroup.duration">${__P(duration_seconds,30)}</stringProp>
+        <stringProp name="ThreadGroup.duration">${__P(duration_seconds,10)}</stringProp>
         <longProp name="ThreadGroup.delay">0</longProp>
         <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
         <boolProp name="ThreadGroup.scheduler">true</boolProp>

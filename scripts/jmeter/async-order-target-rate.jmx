@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
   <hashTree>
-    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Mock-Damai 异步下单 Open-Loop">
-      <stringProp name="TestPlan.comments">Open-loop 异步下单压测：每轮获取一次性幂等 Token，按目标 Submit QPS 提交 /api/orders/async；结果轮询默认关闭。当前默认交易命令链路为 RocketMQ Transaction Message。</stringProp>
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Mock-Damai 异步下单 Target-Rate Baseline">
+      <stringProp name="TestPlan.comments">Target-Rate Baseline：Constant Throughput Timer 对异步提交 sampler 做目标速率控制。它是有限线程下的 rate-controlled 近似，不是数学意义上完全独立于响应时间的 open workload。每次提交前仍获取一次性幂等 Token，因此 SUT 还会承受约一份同量级的 Token 请求流量。结果轮询关闭。</stringProp>
       <boolProp name="TestPlan.tearDown_on_shutdown">true</boolProp>
       <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="用户变量">
         <collectionProp name="Arguments.arguments">
@@ -13,7 +13,7 @@
           </elementProp>
           <elementProp name="data_file" elementType="Argument">
             <stringProp name="Argument.name">data_file</stringProp>
-            <stringProp name="Argument.value">${__P(data_file,/tmp/async-order-users-formal.csv)}</stringProp>
+            <stringProp name="Argument.value">${__P(data_file,scripts/jmeter/data/async-order-users.csv)}</stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
           <elementProp name="risk_decision" elementType="Argument">
@@ -128,9 +128,9 @@
         </hashTree>
       </hashTree>
       <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="异步下单压测线程组">
-        <stringProp name="ThreadGroup.num_threads">${__P(threads,100)}</stringProp>
+        <stringProp name="ThreadGroup.num_threads">${__P(threads,1)}</stringProp>
         <stringProp name="ThreadGroup.ramp_time">${__P(ramp_seconds,1)}</stringProp>
-        <stringProp name="ThreadGroup.duration">${__P(duration_seconds,30)}</stringProp>
+        <stringProp name="ThreadGroup.duration">${__P(duration_seconds,10)}</stringProp>
         <longProp name="ThreadGroup.delay">0</longProp>
         <boolProp name="ThreadGroup.same_user_on_next_iteration">true</boolProp>
         <boolProp name="ThreadGroup.scheduler">true</boolProp>
@@ -208,8 +208,8 @@
           </elementProp>
         </HTTPSamplerProxy>
         <hashTree>
-          <ConstantThroughputTimer guiclass="TestBeanGUI" testclass="ConstantThroughputTimer" testname="目标入口吞吐控制" enabled="true">
-            <stringProp name="throughput">${__P(target_qpm,16500)}</stringProp>
+          <ConstantThroughputTimer guiclass="TestBeanGUI" testclass="ConstantThroughputTimer" testname="目标 Submit 速率控制（CTT 近似）" enabled="true">
+            <stringProp name="throughput">${__P(target_qpm,60)}</stringProp>
             <intProp name="calcMode">1</intProp>
           </ConstantThroughputTimer>
           <hashTree/>

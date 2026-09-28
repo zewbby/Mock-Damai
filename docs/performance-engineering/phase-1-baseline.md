@@ -584,9 +584,10 @@ Formal Starting QPS
 
 1. Preflight 使用 `scripts/load/run-preflight-jmeter.sh` + `scripts/jmeter/async-order-closed-loop.jmx`；
 2. Preflight 不设置目标 QPS，由线程数形成 closed-loop 压力；
-3. Formal Baseline 使用 `scripts/load/run-async-order-jmeter.sh` + `scripts/jmeter/async-order-open-loop.jmx`；
-4. Formal Baseline 显式传入 TARGET_QPS，结果轮询默认关闭；
-5. HTTP 侧正式指标通过 `scripts/load/summarize-jmeter-result.py` 只统计异步提交 sampler。
+3. Formal Baseline 使用 `scripts/load/run-async-order-jmeter.sh` + `scripts/jmeter/async-order-target-rate.jmx`；
+4. Formal Baseline 显式传入 TARGET_QPS，结果轮询固定关闭；Constant Throughput Timer 仅提供有限线程下的 Target-Rate 近似，必须记录实际 attempt TPS 与 Target 命中率；
+5. HTTP 侧正式指标通过 `scripts/load/summarize-jmeter-result.py` 只统计异步提交 sampler，并同时报告幂等 Token 辅助请求速率与 Target 命中率。
+6. Phase 1 V1 每次 Submit 前仍获取一次幂等 Token，因此 `Q_probe_peak` 包含 Token 发行开销；如需纯 Submit Capacity，后续必须作为独立实验显式改变请求模型。
 
 ### 待确认
 
