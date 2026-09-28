@@ -272,7 +272,7 @@ class MapperSqlContractTest {
     }
 
     @Test
-    void phase6PorterAssetsContainAtomicMoveLockAndVersionedBucketSql() throws Exception {
+    void porterAssetsContainAtomicMoveLockAndVersionedBucketSql() throws Exception {
         String porterLua = Files.readString(Path.of("src/main/resources/lua/stock_bucket_porter_move.lua"));
         String lockReleaseLua = Files.readString(Path.of("src/main/resources/lua/redis_lock_release.lua"));
         String stockBucketProperties = Files.readString(Path.of("src/main/java/com/zewbby/smartticket/config/StockBucketProperties.java"));
@@ -320,16 +320,16 @@ class MapperSqlContractTest {
     }
 
     @Test
-    void documentationMarksSyncOrderDeprecatedAndJmeterGuideUsesAsyncOnly() throws Exception {
+    void documentationUsesCurrentAsyncOrderAndPerformanceEntrypoints() throws Exception {
         String readme = Files.readString(Path.of("README.md"));
-        String jmeterGuide = Files.readString(Path.of("docs/performance/async-order-jmeter-load-test-guide.md"));
-        String pressureTemplate = Files.readString(Path.of("docs/performance/phase2-pressure-test-report.md"));
+        String apiReadme = Files.readString(Path.of("docs/api/README.md"));
+        String performanceReadme = Files.readString(Path.of("docs/performance/README.md"));
 
-        assertThat(readme).contains("高并发购票主链路只走异步下单");
-        assertThat(readme).contains("`POST /api/orders`").contains("已废弃");
-        assertThat(jmeterGuide).contains("`POST /api/orders/async`");
-        assertThat(jmeterGuide).doesNotContain("`POST /api/orders`");
-        assertThat(pressureTemplate).contains("`POST /api/orders/async`");
+        assertThat(readme).contains("高并发购票主链路只走 `POST /api/orders/async`");
+        assertThat(readme).contains("`POST /api/orders` 已废弃");
+        assertThat(apiReadme).contains("`POST /api/orders/async`");
+        assertThat(apiReadme).contains("`POST /api/orders`").contains("已废弃");
+        assertThat(performanceReadme).contains("POST /api/orders/async");
     }
 
     @Test

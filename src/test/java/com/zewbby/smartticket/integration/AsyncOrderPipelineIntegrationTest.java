@@ -1,34 +1,28 @@
 package com.zewbby.smartticket.integration;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.zewbby.smartticket.config.AsyncOrderSubmitProperties;
 import com.zewbby.smartticket.mq.AsyncCreateOrderMessage;
 import com.zewbby.smartticket.service.AdminBusinessService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.kafka.core.KafkaTemplate;
 
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class AsyncOrderKafkaIntegrationTest extends BaseIntegrationTest {
+class AsyncOrderPipelineIntegrationTest extends BaseIntegrationTest {
 
     @Autowired
     private AdminBusinessService adminBusinessService;
 
-    @Autowired
-    private KafkaTemplate<String, AsyncCreateOrderMessage> kafkaTemplate;
-
-    @Autowired
-    private AsyncOrderSubmitProperties asyncOrderSubmitProperties;
-
     @Test
-    void asyncOrderKafkaConsumerAndMysqlStockRunAsRealChain() throws Exception {
+    void asyncOrderOutboxAndConsumerCoreUseRealRedisAndMysql() throws Exception {
         /*
-         * 这条测试覆盖真实链路：
-         * HTTP 异步下单 -> Kafka -> 消费者 -> MySQL 创建 ticket_order -> MySQL 库存 available 转 locked。
-         * 单元测试能证明消费者方法逻辑，这条集成测试证明 SQL、事务和消息转换真的能串起来。
+         * 这里验证的是当前集成测试明确拥有的真实边界：
+         * HTTP -> Redis Lua 预扣 -> ticket_order_request/local_message -> Consumer Core -> MySQL。
+         *
+         * Kafka / RocketMQ transport 不在本测试中伪装成真实 Broker；
+         * 对应适配器和 Guardrail 由 mq/config 单元测试覆盖。
          */
         adminBusinessService.preheatStock(2L);
         String token = loginAsUser();
@@ -43,11 +37,29 @@ class AsyncOrderKafkaIntegrationTest extends BaseIntegrationTest {
         ), token);
         String requestId = submitResponse.at("/data/requestId").asText();
 
-        waitUntil("消费者创建订单", () -> "SUCCESS".equals(jdbcTemplate.queryForObject(
-                "SELECT status FROM ticket_order_request WHERE request_id = ?",
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM ticket_order_request WHERE request_id = ?",
+                Integer.class,
+                requestId
+        )).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM local_message WHERE business_type = 'ASYNC_CREATE_ORDER' AND business_key = ?",
+                Integer.class,
+                requestId
+        )).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT available_stock FROM ticket_stock WHERE ticket_category_id = 2",
+                Integer.class
+        )).isEqualTo(1000);
+
+        String payloadJson = jdbcTemplate.queryForObject(
+                "SELECT payload FROM local_message WHERE business_type = 'ASYNC_CREATE_ORDER' AND business_key = ?",
                 String.class,
                 requestId
-        )));
+        );
+        AsyncCreateOrderMessage payload = objectMapper.readValue(payloadJson, AsyncCreateOrderMessage.class);
+
+        assertThat(deliverAsyncCreateOrderOutboxOnce()).isEqualTo(1);
 
         Long orderId = jdbcTemplate.queryForObject(
                 "SELECT order_id FROM ticket_order_request WHERE request_id = ?",
@@ -69,16 +81,16 @@ class AsyncOrderKafkaIntegrationTest extends BaseIntegrationTest {
                 Integer.class
         )).isEqualTo(1);
 
-        kafkaTemplate.send(
-                asyncOrderSubmitProperties.getKafkaAsyncCreateOrderTopic(),
-                "ticket:2",
-                new AsyncCreateOrderMessage(requestId, 1L, 1L, 1L, 2L, 1)
-        );
-        Thread.sleep(500L);
+        // 模拟 Broker 至少一次投递语义：同一业务消息再次到达，不能重复创建正式订单。
+        asyncCreateOrderConsumer.consume(payload);
 
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT COUNT(1) FROM ticket_order WHERE ticket_category_id = 2",
                 Integer.class
         )).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT available_stock FROM ticket_stock WHERE ticket_category_id = 2",
+                Integer.class
+        )).isEqualTo(999);
     }
 }
