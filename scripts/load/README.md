@@ -11,11 +11,24 @@
 | `run-preflight-jmeter.sh` | Closed-loop Preflight，按线程阶梯估算 `Q_probe_peak` | Mac Load Generator |
 | `run-async-order-jmeter.sh` | Open-loop 正式 Baseline，显式指定目标 QPS | Mac Load Generator |
 | `summarize-jmeter-result.py` | 只统计 `02 提交异步下单请求` 的 Submit TPS / P95 / P99 | Load Generator |
-| `reset-load-test-env.sh` | 清理交易数据、重置库存、清 Redis、重新预热 | Windows SUT |
-| `prepare-soldout-flood-env.sh` | Flash-Sale 售罄洪峰环境准备 | 能直连 MySQL / Redis 的 SUT 侧 |
+| `reset-load-test-env.sh` | 清理交易数据、重置库存、清 Redis、重新预热 | 能直连 SUT MySQL / Redis / API 的准备机 |
+| `prepare-soldout-flood-env.sh` | Flash-Sale 售罄洪峰环境准备 | 能直连 SUT MySQL / Redis / API 的准备机 |
 | `run-soldout-flood-jmeter.sh` | Flash-Sale Baseline 的售罄洪峰入口压力 | Load Generator |
 
 旧 `run-burst-order-jmeter.sh` 已删除。固定机器档位会把“脚本预设值”误当成系统容量，与 Phase 1 的 Preflight 方法冲突。
+
+## 两机环境的准备位置
+
+正式 Baseline 的 Load Generator 是 Mac，SUT 是 Windows，但环境准备脚本不要求必须在 Windows Bash 环境执行。
+
+推荐：
+
+- 如果 Mac 能访问 Windows 上的 MySQL、Redis 和应用端口：在 Mac 设置 `DB_HOST`、`REDIS_HOST`、`BASE_URL` 后直接执行准备脚本；
+- 如果数据库或 Redis 只监听 Windows 本机：在 Windows 的 WSL / Git Bash 中执行环境准备；
+- Flash-Sale 准备脚本会生成 `/tmp/async-order-users-formal.csv`。若它在 SUT 侧生成，正式压测前必须把该 CSV 复制到 Mac Load Generator，并通过 `DATA_FILE` 指向实际路径。
+
+Capacity Baseline 关闭 Waiting Room 后，普通 CSV 准备不需要直连 Redis，因此通常可以直接在 Mac Load Generator 上完成。
+
 
 ## JMeter 计划
 
