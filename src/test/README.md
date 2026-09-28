@@ -1,34 +1,81 @@
 # 测试目录说明
 
-测试源码按被测边界组织，文件名统一使用 `目标类型 + Test.java`。本目录当前没有确认可安全删除的重复或空测试；小型测试通常保护配置、消息适配器或安全边界，不按行数删减。
+测试按“被测边界”组织，不按历史开发 Phase 组织。测试文件的价值由它保护的正确性边界决定，不按文件大小删除。
 
-## 分类
+## 测试层次
 
-| 目录 | 覆盖范围 | 运行依赖 |
+| 层次 | 目录 | 主要职责 |
 | --- | --- | --- |
-| `auth/` | JWT、登录失败、密码策略、用户上下文和 Token 黑名单 | 无外部服务 |
-| `config/` | Actuator、MQ 属性和异步下单护栏 | 无外部服务 |
-| `controller/` | 用户、支付和后台管理接口 | Mockito/MockMvc |
-| `idempotency/` | 一次性幂等 token | Mockito |
-| `mapper/` | SQL、Mapper XML、脚本和文档契约 | 从仓库根目录运行 |
-| `mq/` | Kafka、RocketMQ 消费者、生产者和批量调度 | 大多为 Mockito |
-| `ratelimit/` | 客户端 IP 和限流令牌桶 | 无外部服务 |
-| `service/`、`service/impl/` | 缓存、库存、订单、支付和治理服务 | 大多为 Mockito |
-| `integration/` | Spring Boot、MySQL、Redis 和消息链路集成 | Docker；无 Docker 时按配置跳过 |
-| `task/` | 本地消息发布定时任务 | Mockito |
+| 纯单元 / 组件 | `auth/`、`config/`、`idempotency/`、`ratelimit/`、`service/`、`service/impl/`、`task/` | 状态机、算法、配置、缓存、限流、补偿和服务逻辑 |
+| Web 边界 | `controller/` | 权限、参数、当前用户边界和后台接口行为 |
+| MQ adapter contract | `mq/` + publisher tests | Kafka / RocketMQ adapter、批量调度、重试和消息映射；不声称启动真实 Broker |
+| SQL / 文档契约 | `mapper/` | Mapper XML、schema、脚本和文档关键事实 |
+| 基础设施集成 | `integration/` | 真实 MySQL + Redis Testcontainers，验证 SQL、事务、Redis Lua、Outbox 和共享 Consumer Core |
+
+## 集成测试边界
+
+`BaseIntegrationTest` 当前只启动：
+
+```text
+MySQL 8 Testcontainer
+Redis 7 Testcontainer
+Spring Boot / MockMvc
+```
+
+**不启动 Kafka 或 RocketMQ Broker。**
+
+因此 `application-test.yml` 固定：
+
+```text
+async-order-submit.publisher-mode = outbox
+persist-request-before-publish = true
+local-message.sender-enabled = false
+```
+
+异步下单集成流程是：
+
+```text
+HTTP /api/orders/async
+  ↓
+真实 Redis Lua 预扣
+  ↓
+真实 MySQL ticket_order_request + local_message
+  ↓
+BaseIntegrationTest 显式领取 ASYNC_CREATE_ORDER Outbox
+  ↓
+共享 AsyncCreateOrderConsumer
+  ↓
+真实 MySQL 创单 / 库存状态流转
+```
+
+这条链路验证的是 **核心交易状态与基础设施集成**，不是 Broker transport。
+
+如果未来要声称“真实 RocketMQ 集成测试”或“真实 Kafka 集成测试”，必须显式启动对应 Broker（Testcontainer 或独立测试环境）并把该测试与默认 `mvn test` 的依赖边界写清楚。
+
+## 为什么仍保留 Kafka / Redis Stream 测试
+
+当前默认 `flash-sale` 交易命令强制使用 RocketMQ，但：
+
+- Kafka 交易命令模式在离开 `flash-sale` profile 后仍有代码路径；
+- Redis Stream adapter 虽被当前 Guardrail 禁止启用，但实现仍在仓库中；
+- RocketMQ 是默认主链路。
+
+因此这些 adapter 的单元测试继续保留。它们保护“代码存在时必须满足的适配器契约”，但不能被描述成当前默认生产链路的集成验证。
 
 ## 测试资源
 
-- `resources/application-test.yml`：`@ActiveProfiles("test")` 使用的测试配置。
-- `resources/mockito-extensions/org.mockito.plugins.MockMaker`：Mockito mock maker 配置，不能删除。
-- `integration/BaseIntegrationTest.java`：集成测试基类，直接加载 `docs/sql/schema.sql` 和 `docs/sql/data.sql`。
+- `resources/application-test.yml`：固定集成测试消息边界，避免依赖开发机 Kafka / RocketMQ。
+- `resources/mockito-extensions/org.mockito.plugins.MockMaker`：Mockito 配置，不删除。
+- `integration/BaseIntegrationTest.java`：加载 `docs/sql/schema.sql` 和 `docs/sql/data.sql`，并管理 MySQL / Redis Testcontainers。
 
 ## 运行
 
-从仓库根目录执行：
+仓库根目录执行：
 
 ```bash
 mvn test
 ```
 
-集成测试需要 Docker，并会启动 MySQL 和 Redis 容器；只验证纯单元测试时，可以按类或包执行 Maven Surefire 过滤。不要从其他工作目录运行依赖 `Path.of(...)` 的契约测试。
+有 Docker 时运行 Testcontainers 集成测试；无 Docker 时这组测试按 Testcontainers 配置跳过。
+
+修改 schema、Mapper、Lua、异步订单状态机、MQ adapter 或测试 profile 后，都应运行完整 `mvn test`，不要只依赖 Mock 测试。

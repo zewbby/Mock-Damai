@@ -2,19 +2,42 @@ spring:
   sql:
     init:
       mode: never
+
 smart-ticket:
+  # 集成测试不启动 Kafka/RocketMQ Broker。
+  # 交易命令固定走 Outbox，测试基类从 local_message 显式投递给共享 Consumer Core。
+  async-order-submit:
+    publisher-mode: outbox
+    persist-request-before-publish: true
+    in-flight-control-enabled: false
+
+  # 订单超时的 MQ transport 由单元测试覆盖；集成测试直接验证订单状态机。
+  order-timeout:
+    delay-message-enabled: false
+    publisher-mode: outbox
+
+  # 避免支付/订单集成测试额外生成领域事件 Outbox 噪音。
+  domain-event:
+    enabled: false
+
   local-message:
     sender-enabled: false
     batch-size: 20
     confirm-timeout-seconds: 10
     default-max-retry-count: 3
+
   mq-consumer:
     max-retry-count: 2
     retry-interval-seconds: 1
     processing-timeout-seconds: 5
+
   stock-consistency:
     enabled: false
     auto-repair-enabled: false
+
+  waiting-room:
+    enabled: false
+
   rate-limit:
     enabled: true
     order-user-capacity: 20

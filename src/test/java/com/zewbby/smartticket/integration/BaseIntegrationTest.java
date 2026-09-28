@@ -2,9 +2,12 @@ package com.zewbby.smartticket.integration;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.zewbby.smartticket.config.LocalMessageProperties;
+import com.zewbby.smartticket.domain.entity.LocalMessage;
+import com.zewbby.smartticket.enums.LocalMessageBusinessTypeEnum;
+import com.zewbby.smartticket.mq.AsyncCreateOrderConsumer;
+import com.zewbby.smartticket.mq.AsyncCreateOrderMessage;
+import com.zewbby.smartticket.service.LocalMessageService;
 import com.zewbby.smartticket.service.PaymentSignatureService;
-import com.zewbby.smartticket.task.LocalMessagePublishTask;
 import org.junit.jupiter.api.AfterEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -25,6 +28,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.BooleanSupplier;
@@ -51,7 +56,6 @@ public abstract class BaseIntegrationTest {
             DockerImageName.parse("redis:7.2-alpine")
     ).withExposedPorts(6379);
 
-    @Container
     @Autowired
     protected MockMvc mockMvc;
 
@@ -65,20 +69,23 @@ public abstract class BaseIntegrationTest {
     protected StringRedisTemplate stringRedisTemplate;
 
     @Autowired
-    protected LocalMessageProperties localMessageProperties;
+    protected LocalMessageService localMessageService;
 
     @Autowired
-    protected LocalMessagePublishTask localMessagePublishTask;
+    protected AsyncCreateOrderConsumer asyncCreateOrderConsumer;
 
     @Autowired
     protected PaymentSignatureService paymentSignatureService;
 
     /**
-     * 把 Spring Boot 测试上下文的基础设施连接切到 Testcontainers。
+     * 集成测试只启动真实 MySQL / Redis Testcontainers。
      *
-     * 交易系统不能只靠 Mock 测试：Mock 能验证“我期望 mapper 被调用”，但验证不了 SQL 真的能跑、
-     * Redis Lua 真的原子执行。
-     * Testcontainers 用真实 MySQL/Redis 容器替代本机服务，让集成测试覆盖协议、驱动和 SQL。
+     * Broker transport 不在这里伪装成“真实 Kafka/RocketMQ 集成测试”：
+     * test profile 固定使用 Outbox，消息先真实落 local_message，再由测试基类把
+     * ASYNC_CREATE_ORDER payload 显式交给共享 AsyncCreateOrderConsumer。
+     *
+     * 这样仍然覆盖真实 SQL、事务、Redis Lua、Outbox 数据和消费者状态机，
+     * 同时不要求开发机额外运行 Kafka / RocketMQ。
      */
     @DynamicPropertySource
     static void registerContainerProperties(DynamicPropertyRegistry registry) {
@@ -93,14 +100,8 @@ public abstract class BaseIntegrationTest {
         registry.add("spring.data.redis.database", () -> 0);
     }
 
-    /**
-     * 每个测试方法都会重新执行 schema.sql/data.sql，保证 MySQL 数据隔离。
-     * Redis 不受 @Sql 管理，所以测试结束后主动 flush，避免上一个测试残留的库存 key、
-     * soldout 标记污染下一条链路。
-     */
     @AfterEach
     void cleanInfrastructureState() {
-        localMessageProperties.setSenderEnabled(false);
         stringRedisTemplate.getConnectionFactory().getConnection().serverCommands().flushDb();
     }
 
@@ -141,10 +142,28 @@ public abstract class BaseIntegrationTest {
         return objectMapper.readTree(result.getResponse().getContentAsString());
     }
 
-    protected void publishLocalMessagesOnce() {
-        localMessageProperties.setSenderEnabled(true);
-        localMessagePublishTask.publishPendingMessages();
-        localMessageProperties.setSenderEnabled(false);
+    /**
+     * 领取当前 Outbox 中待投递的异步创单命令并交给共享消费者。
+     *
+     * claimPublishableMessages 会先把消息从 INIT/FAILED 原子地抢占为 SENDING；
+     * 消费成功后再标记 CONFIRMED，避免同一个测试后续再次投递旧消息。
+     */
+    protected int deliverAsyncCreateOrderOutboxOnce() throws Exception {
+        List<LocalMessage> messages = localMessageService.claimPublishableMessages(LocalDateTime.now(), 100);
+        int delivered = 0;
+        for (LocalMessage message : messages) {
+            if (!LocalMessageBusinessTypeEnum.ASYNC_CREATE_ORDER.getCode().equals(message.getBusinessType())) {
+                continue;
+            }
+            AsyncCreateOrderMessage payload = objectMapper.readValue(
+                    message.getPayload(),
+                    AsyncCreateOrderMessage.class
+            );
+            asyncCreateOrderConsumer.consume(payload);
+            localMessageService.markConfirmed(message.getMessageId());
+            delivered++;
+        }
+        return delivered;
     }
 
     protected void waitUntil(String description, BooleanSupplier condition) {
@@ -176,7 +195,11 @@ public abstract class BaseIntegrationTest {
         ), bearerToken);
         String requestId = submitResponse.at("/data/requestId").asText();
 
-        publishLocalMessagesOnce();
+        int delivered = deliverAsyncCreateOrderOutboxOnce();
+        if (delivered < 1) {
+            throw new AssertionError("没有找到可投递的 ASYNC_CREATE_ORDER Outbox 消息");
+        }
+
         waitUntil("异步下单请求变为 SUCCESS", () -> {
             String status = jdbcTemplate.queryForObject(
                     "SELECT status FROM ticket_order_request WHERE request_id = ?",

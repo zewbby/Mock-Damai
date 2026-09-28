@@ -272,7 +272,7 @@ class MapperSqlContractTest {
     }
 
     @Test
-    void phase6PorterAssetsContainAtomicMoveLockAndVersionedBucketSql() throws Exception {
+    void porterAssetsContainAtomicMoveLockAndVersionedBucketSql() throws Exception {
         String porterLua = Files.readString(Path.of("src/main/resources/lua/stock_bucket_porter_move.lua"));
         String lockReleaseLua = Files.readString(Path.of("src/main/resources/lua/redis_lock_release.lua"));
         String stockBucketProperties = Files.readString(Path.of("src/main/java/com/zewbby/smartticket/config/StockBucketProperties.java"));
