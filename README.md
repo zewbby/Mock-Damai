@@ -410,7 +410,7 @@ PENDING_PAYMENT -> CLOSED
 ### 2. 克隆项目
 
 ```bash
-git clone https://github.com/zhubaozhenshuai666-lang/Mock-Damai.git
+git clone https://github.com/zewbby/Mock-Damai.git
 cd Mock-Damai
 ```
 

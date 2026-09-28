@@ -3,16 +3,11 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 JMETER_BIN="${JMETER_BIN:-jmeter}"
-TEST_PLAN="${TEST_PLAN:-$ROOT_DIR/scripts/jmeter/async-order-load-test.jmx}"
+TEST_PLAN="${TEST_PLAN:-$ROOT_DIR/scripts/jmeter/async-order-open-loop.jmx}"
 export HEAP="${HEAP:--Xms512m -Xmx2g -XX:MaxMetaspaceSize=256m}"
-DEFAULT_DATA_FILE="$ROOT_DIR/scripts/jmeter/data/async-order-users.csv"
-if [[ -f /tmp/async-order-users-formal.csv ]]; then
-  DEFAULT_DATA_FILE="/tmp/async-order-users-formal.csv"
-elif [[ -f /tmp/async-order-users.csv ]]; then
-  DEFAULT_DATA_FILE="/tmp/async-order-users.csv"
-fi
-DATA_FILE="${DATA_FILE:-$DEFAULT_DATA_FILE}"
-REPORT_ROOT="${REPORT_ROOT:-$ROOT_DIR/reports/jmeter}"
+
+DATA_FILE="${DATA_FILE:-/tmp/async-order-users-formal.csv}"
+REPORT_ROOT="${REPORT_ROOT:-$ROOT_DIR/reports/jmeter-baseline}"
 RUN_ID="${RUN_ID:-$(date +%Y%m%d-%H%M%S)}"
 RESULT_DIR="$REPORT_ROOT/$RUN_ID"
 JTL_FILE="$RESULT_DIR/result.jtl"
@@ -20,47 +15,58 @@ LOG_FILE="$RESULT_DIR/jmeter.log"
 HTML_DIR="$RESULT_DIR/html"
 
 BASE_URL="${BASE_URL:-http://127.0.0.1:8081}"
-THREADS="${THREADS:-10}"
-RAMP_SECONDS="${RAMP_SECONDS:-10}"
-DURATION_SECONDS="${DURATION_SECONDS:-60}"
-TARGET_QPS="${TARGET_QPS:-10}"
-TARGET_QPM="$((TARGET_QPS * 60))"
-POLL_RESULT="${POLL_RESULT:-true}"
+THREADS="${THREADS:-}"
+TARGET_QPS="${TARGET_QPS:-}"
+DURATION_SECONDS="${DURATION_SECONDS:-}"
+RAMP_SECONDS="${RAMP_SECONDS:-30}"
+POLL_RESULT="${POLL_RESULT:-false}"
 POLL_MAX_ATTEMPTS="${POLL_MAX_ATTEMPTS:-20}"
 POLL_INTERVAL_MS="${POLL_INTERVAL_MS:-300}"
 RISK_DECISION="${RISK_DECISION:-pass}"
 DO_PREWARM="${DO_PREWARM:-false}"
 ADMIN_TOKEN="${ADMIN_TOKEN:-}"
+WARMUP_SECONDS="${WARMUP_SECONDS:-0}"
+
+for name in THREADS TARGET_QPS DURATION_SECONDS; do
+  if [[ -z "${!name}" ]]; then
+    echo "正式 Open-Loop 运行必须显式设置 ${name}"
+    exit 1
+  fi
+done
+
+if [[ "$THREADS" -lt 1 || "$TARGET_QPS" -lt 1 || "$DURATION_SECONDS" -lt 1 ]]; then
+  echo "THREADS、TARGET_QPS、DURATION_SECONDS 必须大于 0"
+  exit 1
+fi
 
 if ! command -v "$JMETER_BIN" >/dev/null 2>&1; then
-  echo "找不到 JMeter 命令：$JMETER_BIN"
-  echo "macOS 可执行：brew install jmeter"
-  echo "或设置 JMETER_BIN=/path/to/apache-jmeter/bin/jmeter"
+  echo "找不到 JMeter：$JMETER_BIN"
+  exit 1
+fi
+if [[ ! -f "$TEST_PLAN" || ! -f "$DATA_FILE" ]]; then
+  echo "找不到 TEST_PLAN 或 DATA_FILE"
+  echo "TEST_PLAN=$TEST_PLAN"
+  echo "DATA_FILE=$DATA_FILE"
   exit 1
 fi
 
-if [[ ! -f "$TEST_PLAN" ]]; then
-  echo "找不到测试计划：$TEST_PLAN"
-  exit 1
-fi
-
-if [[ ! -f "$DATA_FILE" ]]; then
-  echo "找不到 CSV 数据文件：$DATA_FILE"
-  exit 1
-fi
-
+TARGET_QPM=$((TARGET_QPS * 60))
 DATA_ROWS=$(($(wc -l < "$DATA_FILE") - 1))
 EXPECTED_REQUESTS=$((TARGET_QPS * DURATION_SECONDS))
+RECOMMENDED_ROWS=$(( (EXPECTED_REQUESTS * 120 + 99) / 100 ))
+
 if [[ "$DATA_ROWS" -lt "$EXPECTED_REQUESTS" ]]; then
-  echo "CSV 数据行数不足：DATA_ROWS=$DATA_ROWS, 预计请求数=$EXPECTED_REQUESTS"
-  echo "请先执行：ROWS=$((EXPECTED_REQUESTS + EXPECTED_REQUESTS / 5)) ./scripts/load/prepare-async-order-jmeter-data.sh"
+  echo "CSV 数据行不足：DATA_ROWS=$DATA_ROWS, EXPECTED_REQUESTS=$EXPECTED_REQUESTS"
   exit 1
+fi
+if [[ "$DATA_ROWS" -lt "$RECOMMENDED_ROWS" ]]; then
+  echo "警告：建议 ROWS >= EXPECTED_REQUESTS × 1.20，即至少 $RECOMMENDED_ROWS 行。"
 fi
 
 mkdir -p "$RESULT_DIR" "$HTML_DIR"
 
 cat <<CONFIG
-JMeter 异步下单压测配置
+Mock-Damai Open-Loop Baseline
 BASE_URL=$BASE_URL
 TEST_PLAN=$TEST_PLAN
 DATA_FILE=$DATA_FILE
@@ -68,14 +74,8 @@ THREADS=$THREADS
 RAMP_SECONDS=$RAMP_SECONDS
 DURATION_SECONDS=$DURATION_SECONDS
 TARGET_QPS=$TARGET_QPS
-TARGET_QPM=$TARGET_QPM
 POLL_RESULT=$POLL_RESULT
-POLL_MAX_ATTEMPTS=$POLL_MAX_ATTEMPTS
-POLL_INTERVAL_MS=$POLL_INTERVAL_MS
 DO_PREWARM=$DO_PREWARM
-HEAP=$HEAP
-DATA_ROWS=$DATA_ROWS
-EXPECTED_REQUESTS=$EXPECTED_REQUESTS
 RESULT_DIR=$RESULT_DIR
 CONFIG
 
@@ -99,7 +99,8 @@ CONFIG
   -Jadmin_token="$ADMIN_TOKEN"
 
 echo
-echo "压测完成。"
+python3 "$ROOT_DIR/scripts/load/summarize-jmeter-result.py" "$JTL_FILE" --warmup-seconds "$WARMUP_SECONDS"
+echo
 echo "原始结果：$JTL_FILE"
 echo "JMeter 日志：$LOG_FILE"
 echo "HTML 报告：$HTML_DIR/index.html"
