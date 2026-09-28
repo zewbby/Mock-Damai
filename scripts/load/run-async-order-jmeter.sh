@@ -39,10 +39,12 @@ if [[ "$THREADS" -lt 1 || "$TARGET_QPS" -lt 1 || "$DURATION_SECONDS" -lt 1 ]]; t
   exit 1
 fi
 
-if ! command -v "$JMETER_BIN" >/dev/null 2>&1; then
-  echo "找不到 JMeter：$JMETER_BIN"
-  exit 1
-fi
+for cmd in "$JMETER_BIN" python3; do
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    echo "找不到命令：$cmd"
+    exit 1
+  fi
+done
 if [[ ! -f "$TEST_PLAN" || ! -f "$DATA_FILE" ]]; then
   echo "找不到 TEST_PLAN 或 DATA_FILE"
   echo "TEST_PLAN=$TEST_PLAN"

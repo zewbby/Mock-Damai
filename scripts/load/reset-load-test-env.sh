@@ -24,7 +24,7 @@ if [[ "$CONFIRM_RESET" != "YES" ]]; then
 真正执行：
 CONFIRM_RESET=YES ./scripts/load/reset-load-test-env.sh
 
-该脚本需要直连 MySQL / Redis，正式两机 Baseline 推荐在 Windows SUT 侧执行。
+该脚本需要直连 SUT 的 MySQL / Redis / API；可在 SUT 侧执行，也可从能够访问这些端口的 Mac 准备机远程执行。
 EOF
   exit 0
 fi
