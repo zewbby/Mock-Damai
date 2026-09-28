@@ -39,6 +39,11 @@ smart-ticket:
     enabled: false
     auto-repair-enabled: false
 
+  # 现有基础设施集成测试断言 ticket_stock 的单库存状态机；
+  # Stock Bucket 的路由、Lua 和 SQL 契约由专门测试覆盖。
+  stock-bucket:
+    enabled: false
+
   waiting-room:
     enabled: false
 
