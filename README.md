@@ -435,6 +435,8 @@ cp src/main/resources/application-local.example.yml \
 src/main/resources/application-local.yml
 ```
 
+`application-local.yml` 只保存本机基础设施连接和本地覆盖，已被 Git 忽略；不要把真实密码或本机配置提交到仓库。
+
 设置本地环境变量：
 
 ```bash
