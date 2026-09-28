@@ -143,69 +143,77 @@ final_available_stock
 
 这里的“successful_orders”最终以正式订单和订单请求状态收敛结果为准，不能用 HTTP 200 数量替代。
 
-## 6. 当前 JMeter 资产发现的问题
+## 6. 当前 JMeter 资产
 
-现有脚本可以复用，但还不能直接定义为 Capacity Baseline 脚本。
+脚本已经按 Capacity Baseline V1 拆分职责。
 
-### 问题 1 — Capacity Baseline 不需要 Waiting Room Token
+### 数据准备
 
-`prepare-async-order-jmeter-data.sh` 当前会为 CSV 的**每一行**生成一个 admissionToken，并向 Redis 写：
-
-```text
-waiting-room:admission:...
-```
-
-但 Capacity Baseline 已经明确：
-
-```text
-SMART_TICKET_WAITING_ROOM_ENABLED=false
-```
-
-因此继续生成大量 admissionToken：
-
-- 没有业务意义；
-- 增加数据准备时间；
-- 向 Redis 写入大量与被测链路无关的 Key；
-- 可能污染 Redis 内存和 keyspace 指标。
-
-正式 Baseline 前应让数据准备脚本支持：
+`prepare-async-order-jmeter-data.sh` 支持：
 
 ```text
 WAITING_ROOM_ENABLED=false
-→ 不生成 admissionToken Redis Key
 ```
 
-CSV 对应字段可以保留为空值或兼容占位值，具体以请求 DTO 校验为准。
+此时：
 
-### 问题 2 — Capacity Baseline 禁止轮询结果
+- 不生成 admissionToken；
+- 不写 Waiting Room Redis Key；
+- CSV 仍保留 admissionToken 列为空，保持两类测试共用同一字段结构。
 
-`run-async-order-jmeter.sh` 当前：
+Flash-Sale Baseline 显式设置：
 
 ```text
-POLL_RESULT=true
+WAITING_ROOM_ENABLED=true
 ```
 
-而 Capacity Baseline 必须：
+才生成一次性 admissionToken。
+
+### Closed-loop Preflight
+
+执行资产：
 
 ```text
-POLL_RESULT=false
+scripts/load/run-preflight-jmeter.sh
+scripts/jmeter/async-order-closed-loop.jmx
 ```
 
-原因是提交后继续轮询：
+特点：
+
+- 没有 Constant Throughput Timer；
+- 线程数决定并发；
+- CSV `recycle=true`，用户池可以重复使用；
+- `POLL_RESULT=false`；
+- 只用于估算 `Q_probe_peak`，不进入正式 Benchmark。
+
+### Formal Open-loop
+
+执行资产：
 
 ```text
-GET /api/order-requests/{requestId}
+scripts/load/run-async-order-jmeter.sh
+scripts/jmeter/async-order-open-loop.jmx
 ```
 
-会额外制造：
+特点：
 
-- HTTP 查询压力；
-- Redis / Result Cache 压力；
-- MySQL 查询压力；
+- TARGET_QPS 必须显式传入；
+- Constant Throughput Timer 只控制异步提交 sampler；
+- CSV `recycle=false`；
+- 正式运行默认不轮询异步结果；
+- CSV 行数至少覆盖理论请求量，仍建议保留 20% 余量。
 
-从而污染核心“提交 → MQ → 创单”容量测量。
+### HTTP 结果摘要
 
-异步结果在压测结束后通过独立采集脚本和数据库 / MQ 状态统计。
+`summarize-jmeter-result.py` 只统计：
+
+```text
+02 提交异步下单请求
+```
+
+因此不会把幂等 Token 请求或结果查询混进 Submit TPS / P95 / P99。
+
+旧 `run-burst-order-jmeter.sh` 已删除。固定的 300 / 2000 / 5000 / 10000 QPS 本机档位不能代替 Preflight 容量估算。
 
 ## 7. 当前已经锁定
 
@@ -227,8 +235,8 @@ Capacity Baseline V1：
 
 ## 8. 下一步待讨论
 
-1. 第一版压力阶梯；
+1. 正式比例压力阶梯；
 2. 单档持续时间与 Warm-up；
-3. THREADS 与 TARGET_QPS 的关系；
-4. 指标采集方式；
+3. Formal Open-loop 下 THREADS 与 TARGET_QPS 的配比规则；
+4. RocketMQ / JVM / Redis / MySQL 指标采集方式；
 5. 稳定容量边界的具体判定阈值。

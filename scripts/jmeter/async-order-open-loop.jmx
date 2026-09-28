@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
   <hashTree>
-    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Smart Ticket 异步下单压测">
-      <stringProp name="TestPlan.comments">异步下单专业压测计划：幂等 token 获取、/api/orders/async 提交、Kafka 消费结果轮询。</stringProp>
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Mock-Damai 异步下单 Open-Loop">
+      <stringProp name="TestPlan.comments">Open-loop 异步下单压测：每轮获取一次性幂等 Token，按目标 Submit QPS 提交 /api/orders/async；结果轮询默认关闭。当前默认交易命令链路为 RocketMQ Transaction Message。</stringProp>
       <boolProp name="TestPlan.tearDown_on_shutdown">true</boolProp>
       <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="用户变量">
         <collectionProp name="Arguments.arguments">
@@ -253,7 +253,7 @@ vars.put(&apos;orderRequestStatus&apos;, &apos;&apos;)</stringProp>
           </JSR223PostProcessor>
           <hashTree/>
         </hashTree>
-        <WhileController guiclass="WhileControllerGui" testclass="WhileController" testname="03 轮询 Kafka 创单结果" enabled="true">
+        <WhileController guiclass="WhileControllerGui" testclass="WhileController" testname="03 轮询异步创单结果" enabled="true">
           <stringProp name="WhileController.condition">${__groovy(vars.get(&apos;poll_result&apos;) == &apos;true&apos; &amp;&amp; vars.get(&apos;requestId&apos;) != null &amp;&amp; vars.get(&apos;requestId&apos;) != &apos;&apos; &amp;&amp; vars.getObject(&apos;pollDone&apos;) != true &amp;&amp; ((vars.getObject(&apos;pollCount&apos;) ?: 0) as int) &lt; Integer.parseInt(vars.get(&apos;poll_max_attempts&apos;) ?: &apos;20&apos;))}</stringProp>
         </WhileController>
         <hashTree>
@@ -328,7 +328,7 @@ if (status == &apos;FAILED&apos; || status == &apos;COMPENSATED&apos; || status 
           </hashTree>
         </hashTree>
       </hashTree>
-      <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="汇总报告" enabled="true">
+      <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="汇总报告" enabled="false">
         <boolProp name="ResultCollector.error_logging">false</boolProp>
         <objProp>
           <name>saveConfig</name>
@@ -365,7 +365,7 @@ if (status == &apos;FAILED&apos; || status == &apos;COMPENSATED&apos; || status 
         <stringProp name="filename">/tmp/smart-ticket-jmeter-gui-result.jtl</stringProp>
       </ResultCollector>
       <hashTree/>
-      <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="View Results Tree" enabled="true">
+      <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="View Results Tree" enabled="false">
         <boolProp name="ResultCollector.error_logging">false</boolProp>
         <objProp>
           <name>saveConfig</name>

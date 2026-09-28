@@ -46,4 +46,11 @@
 - `scripts/jmeter/`：JMeter 测试计划；
 - `scripts/load/`：数据准备、环境重置与压测执行脚本。
 
-这些脚本在 Phase 1 中会逐项审查、修正和重新标定，不能因为脚本“能跑”就直接把历史结果当作新的 Baseline。
+Phase 1 可执行资产已经完成第一轮重构：
+
+- `async-order-closed-loop.jmx` + `run-preflight-jmeter.sh`：Preflight；
+- `async-order-open-loop.jmx` + `run-async-order-jmeter.sh`：Formal Baseline；
+- `prepare-async-order-jmeter-data.sh`：按 Waiting Room 开关准备数据；
+- `summarize-jmeter-result.py`：只统计异步提交 sampler。
+
+旧固定 QPS burst 档位不再作为容量判断依据。

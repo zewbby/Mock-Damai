@@ -352,7 +352,7 @@ Preflight 不是正式 Benchmark，不进入最终性能结论。
 - Rate Limit OFF；
 - Risk Control OFF；
 - Activity Isolation OFF；
-- In-Flight OFF；
+- In-Flight ON，阈值固定在足够高的位置，不让它先成为容量瓶颈；
 - Backpressure OFF；
 - `quantity=1`；
 - 单热点票档；
@@ -580,13 +580,20 @@ Formal Starting QPS
 
 正式起始 QPS 不使用固定绝对值。先执行短时 Preflight Capacity Probe，得到 `Q_probe_peak`，再取约 50% 作为正式 Calibration Sweep 起点。
 
+### 已确认的执行资产
+
+1. Preflight 使用 `scripts/load/run-preflight-jmeter.sh` + `scripts/jmeter/async-order-closed-loop.jmx`；
+2. Preflight 不设置目标 QPS，由线程数形成 closed-loop 压力；
+3. Formal Baseline 使用 `scripts/load/run-async-order-jmeter.sh` + `scripts/jmeter/async-order-open-loop.jmx`；
+4. Formal Baseline 显式传入 TARGET_QPS，结果轮询默认关闭；
+5. HTTP 侧正式指标通过 `scripts/load/summarize-jmeter-result.py` 只统计异步提交 sampler。
+
 ### 待确认
 
-1. Preflight Probe 的具体实现方式；
-2. 正式比例压力阶梯是否采用 50% / 70% / 85% / 100% / 115%；
-3. 单档持续时间与 Warm-up；
-4. Phase 1 指标采集使用 Actuator + 原生指标，还是直接引入 Prometheus 级采集；
-5. 稳定容量边界的具体判定阈值。
+1. 正式比例压力阶梯是否采用 50% / 70% / 85% / 100% / 115%；
+2. 单档正式持续时间与 Warm-up；
+3. Phase 1 指标采集使用 Actuator + 原生指标，还是直接引入 Prometheus 级采集；
+4. 稳定容量边界的具体判定阈值。
 
 ## 14. 输出物
 
