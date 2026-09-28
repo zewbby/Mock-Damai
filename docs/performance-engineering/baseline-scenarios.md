@@ -201,8 +201,8 @@ scripts/jmeter/async-order-target-rate.jmx
 - Constant Throughput Timer 只控制异步提交 sampler；
 - 这是有限线程下的 Target-Rate 近似，不是严格 open workload；正式结果必须同时记录 TARGET_QPS 与实际 attempt TPS；
 - CSV `recycle=false`；
-- 正式运行默认不轮询异步结果；
-- CSV 行数至少覆盖理论请求量，仍建议保留 20% 余量。
+- 正式 runner 固定 `POLL_RESULT=false`，不允许结果查询污染 Submit 压力；
+- Formal runner 强制 `ROWS >= ceil(TARGET_QPS × DURATION × 1.20)`，不足直接拒绝运行。
 
 ### 幂等 Token 辅助流量
 
@@ -242,6 +242,6 @@ Capacity Baseline V1：
 
 1. 正式比例压力阶梯；
 2. 单档持续时间与 Warm-up；
-3. Formal Open-loop 下 THREADS 与 TARGET_QPS 的配比规则；
+3. Formal Target-Rate 下 THREADS 与 TARGET_QPS 的配比规则；
 4. RocketMQ / JVM / Redis / MySQL 指标采集方式；
 5. 稳定容量边界的具体判定阈值。
