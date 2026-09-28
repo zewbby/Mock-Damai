@@ -1,3 +1,7 @@
+# 本文件只提供本机基础设施连接示例。
+# 复制为 application-local.yml 后填写本机环境；该目标文件已被 .gitignore 忽略。
+# 交易链路、MQ 模式、库存分桶、限流等业务配置统一由 application.yml / application-flash-sale.yml 管理。
+
 spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -5,7 +9,7 @@ spring:
     username: ${SMART_TICKET_DB_USERNAME:root}
     password: ${SMART_TICKET_DB_PASSWORD:}
     hikari:
-      pool-name: SmartTicketLiteHikariCP
+      pool-name: MockDamaiHikariCP
       minimum-idle: 5
       maximum-pool-size: 10
       idle-timeout: 30000
@@ -18,148 +22,12 @@ spring:
       port: ${SMART_TICKET_REDIS_PORT:6379}
       database: ${SMART_TICKET_REDIS_DATABASE:0}
       password: ${SMART_TICKET_REDIS_PASSWORD:}
-  kafka:
-    bootstrap-servers: ${SMART_TICKET_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
 
-rocketmq:
-  name-server: ${SMART_TICKET_ROCKETMQ_NAME_SERVER:localhost:9876}
-  producer:
-    group: ${SMART_TICKET_ROCKETMQ_PRODUCER_GROUP:smart-ticket-command-producer}
-
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info,metrics
-  endpoint:
-    health:
-      show-details: always
-
-smart-ticket:
-  jwt:
-    secret: ${SMART_TICKET_JWT_SECRET:smart-ticket-dev-secret-at-least-32-bytes}
-    expire-minutes: ${SMART_TICKET_JWT_EXPIRE_MINUTES:120}
-  audience-identity:
-    encryption-secret: ${SMART_TICKET_AUDIENCE_IDENTITY_ENCRYPTION_SECRET:smart-ticket-audience-identity-secret-at-least-32-bytes}
-  auth:
-    login-fail-threshold: ${SMART_TICKET_LOGIN_FAIL_THRESHOLD:5}
-    login-lock-minutes: ${SMART_TICKET_LOGIN_LOCK_MINUTES:10}
-  local-message:
-    sender-enabled: ${SMART_TICKET_LOCAL_MESSAGE_SENDER_ENABLED:true}
-    batch-size: ${SMART_TICKET_LOCAL_MESSAGE_BATCH_SIZE:100}
-    confirm-timeout-seconds: ${SMART_TICKET_LOCAL_MESSAGE_CONFIRM_TIMEOUT_SECONDS:60}
-    default-max-retry-count: ${SMART_TICKET_LOCAL_MESSAGE_MAX_RETRY_COUNT:5}
-  async-order-submit:
-    persist-request-before-publish: ${SMART_TICKET_ASYNC_ORDER_PERSIST_REQUEST_BEFORE_PUBLISH:false}
-    publisher-mode: ${SMART_TICKET_ASYNC_ORDER_PUBLISHER_MODE:rocketmq}
-    rocket-mq-transaction-message-enabled: ${SMART_TICKET_ASYNC_ORDER_ROCKETMQ_TRANSACTION_MESSAGE_ENABLED:true}
-    kafka-async-create-order-topic: ${SMART_TICKET_ASYNC_ORDER_KAFKA_TOPIC:smart-ticket.async-order.create}
-    kafka-async-create-order-dead-letter-topic: ${SMART_TICKET_ASYNC_ORDER_KAFKA_DLT_TOPIC:smart-ticket.async-order.create.DLT}
-    kafka-async-create-order-consumer-group: ${SMART_TICKET_ASYNC_ORDER_KAFKA_CONSUMER_GROUP:smart-ticket-async-order-create}
-    rocket-mq-async-create-order-topic: ${SMART_TICKET_ASYNC_ORDER_ROCKETMQ_TOPIC:smart-ticket.async-order.create}
-    rocket-mq-async-create-order-consumer-group: ${SMART_TICKET_ASYNC_ORDER_ROCKETMQ_CONSUMER_GROUP:smart-ticket-async-order-create}
-  mq-consumer:
-    max-retry-count: ${SMART_TICKET_MQ_CONSUMER_MAX_RETRY_COUNT:3}
-    retry-interval-seconds: ${SMART_TICKET_MQ_CONSUMER_RETRY_INTERVAL_SECONDS:10}
-    processing-timeout-seconds: ${SMART_TICKET_MQ_CONSUMER_PROCESSING_TIMEOUT_SECONDS:120}
-    concurrent-consumers: ${SMART_TICKET_MQ_CONSUMER_CONCURRENT_CONSUMERS:16}
-    prefetch-count: ${SMART_TICKET_MQ_CONSUMER_PREFETCH_COUNT:20}
-    async-queue-shard-count: ${SMART_TICKET_MQ_CONSUMER_ASYNC_QUEUE_SHARD_COUNT:32}
-    rocket-mq-consume-thread-number: ${SMART_TICKET_ROCKETMQ_CONSUME_THREAD_NUMBER:16}
-    rocket-mq-consume-thread-max: ${SMART_TICKET_ROCKETMQ_CONSUME_THREAD_MAX:64}
-    rocket-mq-pull-batch-size: ${SMART_TICKET_ROCKETMQ_PULL_BATCH_SIZE:64}
-    rocket-mq-consume-message-batch-max-size: ${SMART_TICKET_ROCKETMQ_CONSUME_MESSAGE_BATCH_MAX_SIZE:8}
-    rocket-mq-pull-threshold-for-queue: ${SMART_TICKET_ROCKETMQ_PULL_THRESHOLD_FOR_QUEUE:1000}
-    async-order-batch-enabled: ${SMART_TICKET_ASYNC_ORDER_BATCH_ENABLED:false}
-    async-order-batch-size: ${SMART_TICKET_ASYNC_ORDER_BATCH_SIZE:32}
-    async-order-batch-max-wait-millis: ${SMART_TICKET_ASYNC_ORDER_BATCH_MAX_WAIT_MILLIS:20}
-    async-order-batch-queue-capacity: ${SMART_TICKET_ASYNC_ORDER_BATCH_QUEUE_CAPACITY:4096}
-    async-order-batch-offer-timeout-millis: ${SMART_TICKET_ASYNC_ORDER_BATCH_OFFER_TIMEOUT_MILLIS:50}
-  order-timeout:
-    delay-message-enabled: ${SMART_TICKET_ORDER_TIMEOUT_DELAY_MESSAGE_ENABLED:true}
-    publisher-mode: ${SMART_TICKET_ORDER_TIMEOUT_PUBLISHER_MODE:rocketmq}
-    scan-batch-size: ${SMART_TICKET_ORDER_TIMEOUT_SCAN_BATCH_SIZE:5000}
-    scan-fixed-delay-millis: ${SMART_TICKET_ORDER_TIMEOUT_SCAN_FIXED_DELAY_MILLIS:500}
-    kafka-order-timeout-topic: ${SMART_TICKET_ORDER_TIMEOUT_KAFKA_TOPIC:smart-ticket.order.timeout}
-    kafka-order-timeout-consumer-group: ${SMART_TICKET_ORDER_TIMEOUT_KAFKA_CONSUMER_GROUP:smart-ticket-order-timeout}
-    rocket-mq-order-timeout-topic: ${SMART_TICKET_ORDER_TIMEOUT_ROCKETMQ_TOPIC:smart-ticket.order.timeout}
-    rocket-mq-order-timeout-consumer-group: ${SMART_TICKET_ORDER_TIMEOUT_ROCKETMQ_CONSUMER_GROUP:smart-ticket-order-timeout}
-    rocket-mq-delay-level: ${SMART_TICKET_ORDER_TIMEOUT_ROCKETMQ_DELAY_LEVEL:16}
-    rocket-mq-send-timeout-millis: ${SMART_TICKET_ORDER_TIMEOUT_ROCKETMQ_SEND_TIMEOUT_MILLIS:3000}
-  purchase-plan:
-    enabled: ${SMART_TICKET_PURCHASE_PLAN_ENABLED:true}
-    max-quantity: ${SMART_TICKET_PURCHASE_PLAN_MAX_QUANTITY:4}
-    expire-scan-batch-size: ${SMART_TICKET_PURCHASE_PLAN_EXPIRE_SCAN_BATCH_SIZE:500}
-    expire-scan-fixed-delay-millis: ${SMART_TICKET_PURCHASE_PLAN_EXPIRE_SCAN_FIXED_DELAY_MILLIS:1000}
-    reconciliation-enabled: ${SMART_TICKET_PURCHASE_PLAN_RECONCILIATION_ENABLED:true}
-    reconciliation-batch-size: ${SMART_TICKET_PURCHASE_PLAN_RECONCILIATION_BATCH_SIZE:500}
-    reconciliation-fixed-delay-millis: ${SMART_TICKET_PURCHASE_PLAN_RECONCILIATION_FIXED_DELAY_MILLIS:1000}
-    reconciliation-timeout-millis: ${SMART_TICKET_PURCHASE_PLAN_RECONCILIATION_TIMEOUT_MILLIS:120000}
-  stock-consistency:
-    enabled: ${SMART_TICKET_STOCK_CONSISTENCY_ENABLED:false}
-    fixed-delay-seconds: ${SMART_TICKET_STOCK_CONSISTENCY_FIXED_DELAY_SECONDS:300}
-    batch-size: ${SMART_TICKET_STOCK_CONSISTENCY_BATCH_SIZE:100}
-    auto-repair-enabled: ${SMART_TICKET_STOCK_CONSISTENCY_AUTO_REPAIR_ENABLED:false}
-  stock-bucket:
-    enabled: ${SMART_TICKET_STOCK_BUCKET_ENABLED:true}
-    default-bucket-count: ${SMART_TICKET_STOCK_BUCKET_DEFAULT_COUNT:32}
-    active-version: ${SMART_TICKET_STOCK_BUCKET_ACTIVE_VERSION:1}
-    active-probe-count: ${SMART_TICKET_STOCK_BUCKET_ACTIVE_PROBE_COUNT:3}
-    tail-bucket-count: ${SMART_TICKET_STOCK_BUCKET_TAIL_BUCKET_COUNT:4}
-    porter-enabled: ${SMART_TICKET_STOCK_BUCKET_PORTER_ENABLED:false}
-    porter-source-version: ${SMART_TICKET_STOCK_BUCKET_PORTER_SOURCE_VERSION:1}
-    porter-max-move-quantity-per-run: ${SMART_TICKET_STOCK_BUCKET_PORTER_MAX_MOVE_QUANTITY_PER_RUN:1000}
-    porter-batch-size: ${SMART_TICKET_STOCK_BUCKET_PORTER_BATCH_SIZE:100}
-    porter-lock-ttl-seconds: ${SMART_TICKET_STOCK_BUCKET_PORTER_LOCK_TTL_SECONDS:30}
-    porter-move-record-ttl-seconds: ${SMART_TICKET_STOCK_BUCKET_PORTER_MOVE_RECORD_TTL_SECONDS:86400}
-    porter-fixed-delay-seconds: ${SMART_TICKET_STOCK_BUCKET_PORTER_FIXED_DELAY_SECONDS:300}
-  artist-ranking:
-    enabled: ${SMART_TICKET_ARTIST_RANKING_ENABLED:true}
-    detail-click-weight: ${SMART_TICKET_ARTIST_RANKING_DETAIL_CLICK_WEIGHT:1.0}
-    search-weight: ${SMART_TICKET_ARTIST_RANKING_SEARCH_WEIGHT:0.3}
-    purchase-intent-weight: ${SMART_TICKET_ARTIST_RANKING_PURCHASE_INTENT_WEIGHT:3.0}
-    paid-order-weight: ${SMART_TICKET_ARTIST_RANKING_PAID_ORDER_WEIGHT:10.0}
-    content-component-weight: ${SMART_TICKET_ARTIST_RANKING_CONTENT_COMPONENT_WEIGHT:0.40}
-    interest-component-weight: ${SMART_TICKET_ARTIST_RANKING_INTEREST_COMPONENT_WEIGHT:0.25}
-    intent-component-weight: ${SMART_TICKET_ARTIST_RANKING_INTENT_COMPONENT_WEIGHT:0.15}
-    paid-component-weight: ${SMART_TICKET_ARTIST_RANKING_PAID_COMPONENT_WEIGHT:0.12}
-    task-component-weight: ${SMART_TICKET_ARTIST_RANKING_TASK_COMPONENT_WEIGHT:0.08}
-    anonymous-quality-factor: ${SMART_TICKET_ARTIST_RANKING_ANONYMOUS_QUALITY_FACTOR:0.35}
-    authenticated-quality-factor: ${SMART_TICKET_ARTIST_RANKING_AUTHENTICATED_QUALITY_FACTOR:1.0}
-    saturation-scale: ${SMART_TICKET_ARTIST_RANKING_SATURATION_SCALE:100.0}
-    default-limit: ${SMART_TICKET_ARTIST_RANKING_DEFAULT_LIMIT:20}
-    max-limit: ${SMART_TICKET_ARTIST_RANKING_MAX_LIMIT:100}
-    dedup-ttl-seconds: ${SMART_TICKET_ARTIST_RANKING_DEDUP_TTL_SECONDS:86400}
-    daily-key-ttl-seconds: ${SMART_TICKET_ARTIST_RANKING_DAILY_KEY_TTL_SECONDS:691200}
-    weekly-key-ttl-seconds: ${SMART_TICKET_ARTIST_RANKING_WEEKLY_KEY_TTL_SECONDS:1296000}
-    monthly-key-ttl-seconds: ${SMART_TICKET_ARTIST_RANKING_MONTHLY_KEY_TTL_SECONDS:5184000}
-    hourly-key-ttl-seconds: ${SMART_TICKET_ARTIST_RANKING_HOURLY_KEY_TTL_SECONDS:172800}
-    hot-window-hours: ${SMART_TICKET_ARTIST_RANKING_HOT_WINDOW_HOURS:24}
-    hot-half-life-hours: ${SMART_TICKET_ARTIST_RANKING_HOT_HALF_LIFE_HOURS:6.0}
-    artist-max-length: ${SMART_TICKET_ARTIST_RANKING_ARTIST_MAX_LENGTH:64}
-  rate-limit:
-    enabled: ${SMART_TICKET_RATE_LIMIT_ENABLED:true}
-    algorithm: ${SMART_TICKET_RATE_LIMIT_ALGORITHM:token-bucket}
-    order-user-capacity: ${SMART_TICKET_RATE_LIMIT_ORDER_USER_CAPACITY:5}
-    order-user-refill-rate-per-second: ${SMART_TICKET_RATE_LIMIT_ORDER_USER_REFILL_RATE_PER_SECOND:1}
-    order-ip-capacity: ${SMART_TICKET_RATE_LIMIT_ORDER_IP_CAPACITY:30}
-    order-ip-refill-rate-per-second: ${SMART_TICKET_RATE_LIMIT_ORDER_IP_REFILL_RATE_PER_SECOND:5}
-    order-api-capacity: ${SMART_TICKET_RATE_LIMIT_ORDER_API_CAPACITY:500}
-    order-api-refill-rate-per-second: ${SMART_TICKET_RATE_LIMIT_ORDER_API_REFILL_RATE_PER_SECOND:100}
-    order-ticket-capacity: ${SMART_TICKET_RATE_LIMIT_ORDER_TICKET_CAPACITY:100}
-    order-ticket-refill-rate-per-second: ${SMART_TICKET_RATE_LIMIT_ORDER_TICKET_REFILL_RATE_PER_SECOND:20}
-    key-ttl-seconds: ${SMART_TICKET_RATE_LIMIT_KEY_TTL_SECONDS:120}
-    soldout-ttl-seconds: ${SMART_TICKET_SOLDOUT_TTL_SECONDS:600}
-  payment:
-    mock-callback-secret: ${SMART_TICKET_PAYMENT_MOCK_CALLBACK_SECRET:smart-ticket-mock-payment-secret-at-least-32-bytes}
-    callback-timestamp-tolerance-seconds: ${SMART_TICKET_PAYMENT_CALLBACK_TIMESTAMP_TOLERANCE_SECONDS:300}
-    callback-nonce-ttl-seconds: ${SMART_TICKET_PAYMENT_CALLBACK_NONCE_TTL_SECONDS:600}
-  payment-compensation:
-    enabled: ${SMART_TICKET_PAYMENT_COMPENSATION_ENABLED:true}
-    rocket-mq-topic: ${SMART_TICKET_PAYMENT_COMPENSATION_ROCKETMQ_TOPIC:smart-ticket.payment.compensation}
-    rocket-mq-consumer-group: ${SMART_TICKET_PAYMENT_COMPENSATION_ROCKETMQ_CONSUMER_GROUP:smart-ticket-payment-compensation}
-  domain-event:
-    enabled: ${SMART_TICKET_DOMAIN_EVENT_ENABLED:true}
-    order-created-topic: ${SMART_TICKET_DOMAIN_EVENT_ORDER_CREATED_TOPIC:smart-ticket.event.order-created}
-    payment-paid-topic: ${SMART_TICKET_DOMAIN_EVENT_PAYMENT_PAID_TOPIC:smart-ticket.event.payment-paid}
-    stock-changed-topic: ${SMART_TICKET_DOMAIN_EVENT_STOCK_CHANGED_TOPIC:smart-ticket.event.stock-changed}
+logging:
+  level:
+    org.apache.kafka: WARN
+    org.springframework.kafka: WARN
+    org.apache.rocketmq: WARN
+    org.apache.ibatis: WARN
+    com.zaxxer.hikari: INFO
+    com.zewbby.smartticket: INFO

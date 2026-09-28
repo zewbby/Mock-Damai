@@ -11,11 +11,11 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.zew</groupId>
-    <artifactId>smart-ticket-lite</artifactId>
+    <groupId>com.zewbby</groupId>
+    <artifactId>mock-damai</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>smart-ticket-lite</name>
-    <description>Smart ticket lite system based on Spring Boot 3 and MySQL</description>
+    <name>Mock-Damai</name>
+    <description>High-concurrency ticketing system for flash-sale architecture experiments</description>
 
     <properties>
         <java.version>21</java.version>
@@ -50,7 +50,7 @@
             <artifactId>spring-security-crypto</artifactId>
         </dependency>
 
-        <!-- Redis：第二阶段用于缓存、库存预热等能力 -->
+        <!-- Redis：缓存、限流、等待室、幂等与库存预扣等核心能力 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
@@ -62,7 +62,7 @@
             <artifactId>caffeine</artifactId>
         </dependency>
 
-        <!-- Kafka：用于异步下单、死信和订单超时事件流 -->
+        <!-- Kafka：可选交易命令模式，以及默认领域事件投递链路 -->
         <dependency>
             <groupId>org.springframework.kafka</groupId>
             <artifactId>spring-kafka</artifactId>
@@ -75,7 +75,7 @@
             <version>${rocketmq-spring.version}</version>
         </dependency>
 
-        <!-- Actuator：第四阶段用于基础健康检查和运行指标观测 -->
+        <!-- Actuator：健康检查、Micrometer 指标与性能工程观测入口 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>

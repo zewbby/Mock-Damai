@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 
 @Component
 @ConditionalOnProperty(prefix = "smart-ticket.order-timeout", name = "delay-message-enabled", havingValue = "true")
+@ConditionalOnProperty(prefix = "smart-ticket.order-timeout", name = "publisher-mode", havingValue = "kafka")
 public class OrderTimeoutConsumer {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(OrderTimeoutConsumer.class);

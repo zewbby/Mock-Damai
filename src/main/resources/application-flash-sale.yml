@@ -1,3 +1,5 @@
+# flash-sale profile：只保存高并发场景相对 application.yml 的参数覆盖。
+# 启动时 AsyncOrderSubmitGuardrail 会强制校验 RocketMQ 事务消息、入口预落库和 in-flight 等关键约束。
 spring:
   datasource:
     hikari:
