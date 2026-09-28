@@ -3,7 +3,7 @@ server:
 
 spring:
   application:
-    name: smart-ticket-lite
+    name: mock-damai
 
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:local,flash-sale}
@@ -22,7 +22,6 @@ spring:
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
         spring.json.trusted.packages: com.zewbby.smartticket.mq
-        spring.json.value.default.type: com.zewbby.smartticket.mq.AsyncCreateOrderMessage
 
 rocketmq:
   name-server: ${SMART_TICKET_ROCKETMQ_NAME_SERVER:localhost:9876}
