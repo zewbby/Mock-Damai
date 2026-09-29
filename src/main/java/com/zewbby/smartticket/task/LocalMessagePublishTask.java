@@ -46,13 +46,14 @@ public class LocalMessagePublishTask {
     /**
      * 扫描 INIT / FAILED 消息并投递到 Kafka。
      *
-     * INIT 表示业务事务已经提交了“必须发送这条消息”的意图；FAILED 表示上一次发送、nack、return 或 confirm timeout 后可以重试。
-     * retry_count、max_retry_count、next_retry_time 控制重试次数和退避时间，避免 Kafka 不可用时无限打爆数据库和 MQ。
+     * INIT 表示业务事务已经提交了“必须发送这条消息”的意图；FAILED 表示上一次发送调用、send callback
+     * 或发送确认超时后可以重试。retry_count、max_retry_count、next_retry_time 控制重试次数和退避时间，
+     * 避免 Kafka 不可用时无限打爆数据库和 MQ。
      *
      * 多实例部署时，发送器通过 FOR UPDATE SKIP LOCKED 跳过其他实例已锁定的行，
      * 再把当前批次一次性更新为 SENDING；因此同一消息只会由一个实例领取。
      */
-    @Scheduled(fixedDelay = 3000)
+    @Scheduled(fixedDelayString = "#{@localMessageProperties.publishFixedDelayMillis}")
     @MonitoredOperation(value = "local_message.publish_pending", slowThresholdMs = 1000L)
     public void publishPendingMessages() {
         // 开关校验
@@ -71,10 +72,10 @@ public class LocalMessagePublishTask {
     }
 
     /**
-     * 不依靠定时任务，而是由业务线程在事务提交后（afterCommit）立即强行触发的即时发送。
-     * 架构中的作用：降低消息延迟。如果全靠 3 秒一次的定时任务，用户下完单平均要等 1.5 秒消息才发出去。
-     * 通过这个方法，在事务成功后立刻投递，99.9% 的消息在毫秒级就进入了 Kafka。定时任务只负责捞取那 0.1% 失败的残余。
-     * @param messageId
+     * 由业务线程在事务提交后（afterCommit）触发一次即时发送，避免正常路径必须等待下一轮周期扫描。
+     * 周期扫描仍负责应用宕机、即时发送失败等情况下残留的 INIT / FAILED 消息，因此即时路径不是可靠性的唯一边界。
+     *
+     * @param messageId local_message.message_id
      */
     @MonitoredOperation(value = "local_message.publish_by_message_id", slowThresholdMs = 500L)
     public void publishByMessageId(String messageId) {
@@ -99,16 +100,17 @@ public class LocalMessagePublishTask {
     /**
      * 发送一条本地消息。
      *
-     * KafkaTemplate.send 返回不抛异常，只能说明客户端调用链路没有立刻失败，不能说明 Broker 已经确认收到消息。
-     * 为了降低 Outbox 写放大，默认不再强制写 SENT 中间态；消息保持 SENDING，直到 Kafka send callback 直接改 CONFIRMED。
-     * Confirm 超时扫描覆盖 SENDING/SENT 两种状态，所以发送线程退出、回调丢失或应用重启仍能重新置 FAILED 后重试。
-     * 对订单超时关闭也是同一规则：CONFIRMED 只代表 Broker 收到延迟消息，不代表订单已经被关闭；
+     * KafkaTemplate.send 返回不抛异常，只能说明客户端发送调用没有立刻失败；真正的发送结果由返回 Future 的 callback 决定。
+     * 为了降低 Outbox 写放大，默认不再强制写 SENT 中间态；消息保持 SENDING，直到 send callback 成功后直接改 CONFIRMED。
+     * 发送确认超时扫描覆盖 SENDING / SENT 两种状态，所以发送线程退出、callback 丢失或应用重启仍能重新置 FAILED 后重试。
+     * 对订单超时关闭也是同一规则：CONFIRMED 只代表 Kafka 已确认接收该消息，不代表订单已经被关闭；
      * 真正关闭成功与否必须看超时消费者读取数据库订单状态后的幂等处理结果。
      */
 
     /**
      * 调用 Spring Kafka 发送消息。
-     * 架构中的作用：将本地消息表的抽象数据，精准对接到 Kafka topic 和分区 key 上。
+     * 架构中的作用：将 local_message 中记录的 topic、partition key 与 payload 投递到 Kafka。
+     *
      * @param localMessage
      */
     void publishOne(LocalMessage localMessage) {
@@ -148,7 +150,7 @@ public class LocalMessagePublishTask {
      * 不能让这些消息永久停留在“等待确认”，所以使用 updated_at 做超时判断，转回 FAILED 等待重试。
      * schema 中对应索引是 idx_status_updated_at(status, updated_at)。
      */
-    @Scheduled(fixedDelay = 10000)
+    @Scheduled(fixedDelayString = "#{@localMessageProperties.confirmTimeoutScanFixedDelayMillis}")
     @MonitoredOperation(value = "local_message.scan_confirm_timeout", slowThresholdMs = 1000L)
     public void scanConfirmTimeoutMessages() {
         //开关校验

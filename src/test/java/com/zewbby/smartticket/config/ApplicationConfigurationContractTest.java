@@ -2,8 +2,10 @@ package com.zewbby.smartticket.config;
 
 import com.zewbby.smartticket.mq.OrderTimeoutConsumer;
 import com.zewbby.smartticket.mq.RocketMqOrderTimeoutConsumer;
+import com.zewbby.smartticket.task.LocalMessagePublishTask;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.scheduling.annotation.Scheduled;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -131,6 +133,30 @@ class ApplicationConfigurationContractTest {
                 .filter(method -> method.getName().equals(methodName))
                 .findFirst()
                 .orElseThrow();
+    }
+
+
+    @Test
+    void localMessageSchedulesAreConfigurationDriven() throws Exception {
+        Scheduled publishSchedule = LocalMessagePublishTask.class
+                .getDeclaredMethod("publishPendingMessages")
+                .getAnnotation(Scheduled.class);
+        Scheduled confirmTimeoutSchedule = LocalMessagePublishTask.class
+                .getDeclaredMethod("scanConfirmTimeoutMessages")
+                .getAnnotation(Scheduled.class);
+
+        assertThat(publishSchedule.fixedDelayString())
+                .isEqualTo("#{@localMessageProperties.publishFixedDelayMillis}");
+        assertThat(confirmTimeoutSchedule.fixedDelayString())
+                .isEqualTo("#{@localMessageProperties.confirmTimeoutScanFixedDelayMillis}");
+
+        String application = Files.readString(Path.of("src/main/resources/application.yml"));
+        assertThat(application).contains(
+                "publish-fixed-delay-millis: ${SMART_TICKET_LOCAL_MESSAGE_PUBLISH_FIXED_DELAY_MILLIS:3000}"
+        );
+        assertThat(application).contains(
+                "confirm-timeout-scan-fixed-delay-millis: ${SMART_TICKET_LOCAL_MESSAGE_CONFIRM_SCAN_FIXED_DELAY_MILLIS:10000}"
+        );
     }
 
 }

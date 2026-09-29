@@ -31,6 +31,12 @@ public class OrderTimeoutScanTask {
         this.orderTimeoutProperties = orderTimeoutProperties;
     }
 
+    /**
+     * transport-independent 的超时关闭兜底。
+     *
+     * 即使 Kafka / RocketMQ 延迟消息已经启用，这个扫描也保持运行，用数据库中的 PENDING + expire_time
+     * 收敛漏消息、消费失败或应用重启后的残余订单；closeTimeoutOrder 本身必须保持幂等。
+     */
     @Scheduled(fixedDelayString = "#{@orderTimeoutProperties.scanFixedDelayMillis}")
     public void closeExpiredPendingOrders() {
         List<TicketOrder> expiredOrders =
