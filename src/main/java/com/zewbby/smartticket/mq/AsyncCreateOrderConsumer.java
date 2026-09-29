@@ -504,7 +504,8 @@ public class AsyncCreateOrderConsumer {
 
             /*
              * 订单创建成功后，超时关闭消息必须走统一生产器。
-             * Kafka 没有原生延时队列语义，延时关闭主要依赖扫描兜底；开启超时事件时也必须由消费者重新校验 expireTime。
+             * 具体 transport 的延迟语义由 OrderTimeoutMessagePublisher 决定；消费者始终重新校验 expireTime，
+             * 扫描任务只作为兜底，不能把共享 Consumer Core 写死为某个 Broker 的行为。
              */
             orderTimeoutProducer.sendOrderTimeoutMessage(buildOrderTimeoutMessage(order));
 
@@ -880,7 +881,7 @@ public class AsyncCreateOrderConsumer {
         message.setExpireTime(order.getExpireTime());
         /*
          * 异步创单线程和后续超时关闭消费者不是同一个调用栈。
-         * 当前项目没有完整 TraceContext，先用订单维度的稳定 traceId 把 local_message、Kafka 投递和超时关闭日志串起来。
+         * 当前项目没有完整 TraceContext，先用订单维度的稳定 traceId 把 local_message、MQ 投递和超时关闭日志串起来。
          */
         message.setTraceId("order-timeout-" + order.getId());
         message.setMessageId(null);
@@ -953,7 +954,7 @@ public class AsyncCreateOrderConsumer {
                                       String failReason) {
         /*
          * 业务失败和系统失败要分开处理：库存不足、关系校验失败、用户不存在通常重试也不会变好，
-         * 继续让 Kafka 重试只会刷日志、拖慢消费。所以这里直接更新 request 失败并做 Redis 补偿，
+         * 继续进行 Broker-level 重试只会刷日志、拖慢消费。所以这里直接更新 request 失败并做 Redis 补偿，
          * 同时落 dead_letter_message，便于后续人工判断是否忽略或修正数据后重试。
          */
         if (markFailedAndCompensateRedis(orderRequest, failReason)) {
@@ -1297,10 +1298,15 @@ public class AsyncCreateOrderConsumer {
     private void recordDeadLetter(AsyncCreateOrderMessage message,
                                   ConsumerExceptionTypeEnum exceptionType,
                                   String reason) {
+        String sourceChannel = resolveAsyncCreateOrderTopic();
+        /*
+         * dead_letter_message 仍沿用 queue_name / exchange_name 的历史字段命名。
+         * 这里是 Consumer Core 直接记录的业务死信，没有经过额外 DLT，因此两列都指向实际来源 channel。
+         */
         deadLetterMessageService.recordAsyncCreateOrderDeadLetter(
                 message,
-                resolveAsyncCreateOrderTopic(),
-                resolveAsyncCreateOrderTopic(),
+                sourceChannel,
+                sourceChannel,
                 resolveAsyncCreateOrderKey(message),
                 null,
                 exceptionType,
@@ -1312,6 +1318,13 @@ public class AsyncCreateOrderConsumer {
         if (asyncOrderSubmitProperties == null) {
             return "smart-ticket.async-order.create";
         }
+        if (asyncOrderSubmitProperties.isRocketMqPublisherMode()) {
+            return asyncOrderSubmitProperties.getRocketMqAsyncCreateOrderTopic();
+        }
+        if (asyncOrderSubmitProperties.isRedisStreamPublisherMode()) {
+            return asyncOrderSubmitProperties.getRedisStreamName();
+        }
+        // Kafka direct 和 Outbox 最终都进入 Kafka async-create-order topic。
         return asyncOrderSubmitProperties.getKafkaAsyncCreateOrderTopic();
     }
 

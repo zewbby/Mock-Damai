@@ -659,6 +659,28 @@ class AsyncCreateOrderConsumerTest {
     }
 
     @Test
+    void deadLetterUsesRocketMqTopicWhenRocketMqTransportIsActive() {
+        AsyncOrderSubmitProperties properties = new AsyncOrderSubmitProperties();
+        properties.setPublisherMode(AsyncOrderSubmitProperties.PUBLISHER_MODE_ROCKETMQ);
+        properties.setRocketMqAsyncCreateOrderTopic("smart-ticket.async-order.create.rocket");
+        ReflectionTestUtils.setField(consumer, "asyncOrderSubmitProperties", properties);
+        when(orderRequestMapper.selectByRequestId("REQ1")).thenReturn(null);
+        when(orderRequestMapper.insertIgnore(any(TicketOrderRequest.class))).thenReturn(0);
+
+        consumer.consume(new AsyncCreateOrderMessage("REQ1", 1L, 1L, 1L, 2L, 1));
+
+        verify(deadLetterMessageService).recordAsyncCreateOrderDeadLetter(
+                any(),
+                eq("smart-ticket.async-order.create.rocket"),
+                eq("smart-ticket.async-order.create.rocket"),
+                anyString(),
+                any(),
+                eq(ConsumerExceptionTypeEnum.DATA_INCONSISTENCY),
+                eq("异步下单请求补建失败")
+        );
+    }
+
+    @Test
     void consumerRecordsDeadLetterWhenMissingRequestCannotBeCreated() {
         when(orderRequestMapper.selectByRequestId("REQ1")).thenReturn(null);
         when(orderRequestMapper.insertIgnore(any(TicketOrderRequest.class))).thenReturn(0);

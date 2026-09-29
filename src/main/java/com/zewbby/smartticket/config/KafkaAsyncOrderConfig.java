@@ -4,6 +4,7 @@ import com.zewbby.smartticket.mq.AsyncCreateOrderMessage;
 import com.zewbby.smartticket.mq.OrderTimeoutMessage;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.common.TopicPartition;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
@@ -19,12 +20,14 @@ import org.springframework.util.backoff.FixedBackOff;
 public class KafkaAsyncOrderConfig {
 
     @Bean
+    @ConditionalOnProperty(prefix = "smart-ticket.async-order-submit", name = "publisher-mode", havingValue = "kafka")
     @SuppressWarnings({"rawtypes", "unchecked"})
     public KafkaTemplate<String, AsyncCreateOrderMessage> asyncOrderKafkaTemplate(ProducerFactory producerFactory) {
         return new KafkaTemplate<>(producerFactory);
     }
 
     @Bean
+    @ConditionalOnProperty(prefix = "smart-ticket.order-timeout", name = "publisher-mode", havingValue = "kafka")
     @SuppressWarnings({"rawtypes", "unchecked"})
     public KafkaTemplate<String, OrderTimeoutMessage> orderTimeoutKafkaTemplate(ProducerFactory producerFactory) {
         return new KafkaTemplate<>(producerFactory);
@@ -37,6 +40,7 @@ public class KafkaAsyncOrderConfig {
     }
 
     @Bean
+    @ConditionalOnProperty(prefix = "smart-ticket.async-order-submit", name = "publisher-mode", havingValue = "kafka")
     public NewTopic asyncCreateOrderTopic(AsyncOrderSubmitProperties asyncOrderSubmitProperties,
                                           MqConsumerProperties mqConsumerProperties) {
         return TopicBuilder.name(asyncOrderSubmitProperties.getKafkaAsyncCreateOrderTopic())
@@ -45,6 +49,7 @@ public class KafkaAsyncOrderConfig {
     }
 
     @Bean
+    @ConditionalOnProperty(prefix = "smart-ticket.async-order-submit", name = "publisher-mode", havingValue = "kafka")
     public NewTopic asyncCreateOrderDeadLetterTopic(AsyncOrderSubmitProperties asyncOrderSubmitProperties,
                                                     MqConsumerProperties mqConsumerProperties) {
         return TopicBuilder.name(asyncOrderSubmitProperties.getKafkaAsyncCreateOrderDeadLetterTopic())
@@ -53,6 +58,7 @@ public class KafkaAsyncOrderConfig {
     }
 
     @Bean
+    @ConditionalOnProperty(prefix = "smart-ticket.order-timeout", name = "publisher-mode", havingValue = "kafka")
     public NewTopic orderTimeoutTopic(OrderTimeoutProperties orderTimeoutProperties,
                                       MqConsumerProperties mqConsumerProperties) {
         return TopicBuilder.name(orderTimeoutProperties.getKafkaOrderTimeoutTopic())
@@ -61,6 +67,7 @@ public class KafkaAsyncOrderConfig {
     }
 
     @Bean
+    @ConditionalOnProperty(prefix = "smart-ticket.async-order-submit", name = "publisher-mode", havingValue = "kafka")
     @SuppressWarnings({"rawtypes", "unchecked"})
     public ConcurrentKafkaListenerContainerFactory<String, AsyncCreateOrderMessage> asyncOrderKafkaListenerContainerFactory(
             ConsumerFactory consumerFactory,

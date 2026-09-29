@@ -26,10 +26,13 @@ public class AsyncOrderSubmitProperties {
     /**
      * 异步下单消息发布模式。
      *
-     * outbox: 写 local_message 后由本地消息发送器可靠投递 Kafka，可靠性强但 DB 写放大明显。
-     * redis-stream: 历史本地事件流模式，不作为抢票主链路。
-     * kafka: 入口写 Kafka topic，由 Kafka 消费者复用异步创单处理器创建正式订单。
-     * rocketmq: 入口写 RocketMQ topic，由 RocketMQ 消费者复用异步创单处理器创建正式订单。
+     * outbox: 写 local_message，再由本地消息发送器可靠投递 Kafka；只能在非 flash-sale 场景使用。
+     * redis-stream: legacy experimental adapter，代码与测试仍保留，但当前 Guardrail 不允许选择该模式。
+     * kafka: 入口直接写 Kafka topic；只能在非 flash-sale 场景使用。
+     * rocketmq: 入口写 RocketMQ topic；flash-sale profile 强制使用该模式并开启事务消息。
+     *
+     * Java 字段默认值保留 outbox，便于未经过外部配置绑定的对象和隔离单元测试使用；
+     * 真实应用运行默认值由 application.yml 明确为 rocketmq。
      */
     private String publisherMode = PUBLISHER_MODE_OUTBOX;
 
