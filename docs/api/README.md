@@ -26,7 +26,7 @@ http://localhost:8081
 
 ## 当前主链路
 
-普通抢票：
+普通抢票通过 `POST /api/orders/async` 提交，使用 `GET /api/order-requests/{requestId}` 查询结果：
 
 ```text
 登录
