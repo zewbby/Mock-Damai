@@ -304,6 +304,8 @@ class MapperSqlContractTest {
         assertThat(schema).contains("dead_at DATETIME NULL");
         assertThat(schema).contains("KEY idx_status_updated_at (status, updated_at)");
         assertThat(schema).contains("KEY idx_local_message_publish_scan (status, next_retry_time, created_at)");
+        assertThat(repair).contains("CALL add_index_if_missing('local_message', 'idx_local_message_publish_scan', "
+                + "'KEY `idx_local_message_publish_scan` (`status`, `next_retry_time`, `created_at`)');");
         assertThat(localMessageXml).contains("status IN ('INIT', 'FAILED')");
         assertThat(localMessageXml).doesNotContain("<select id=\"selectPublishableMessages\"");
         assertThat(localMessageXml).contains("<select id=\"selectPublishableMessagesForUpdate\"");
