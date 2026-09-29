@@ -24,8 +24,14 @@ public class LocalMessage {
 
     private String businessKey;
 
+    /**
+     * 历史列名保留为 exchange_name；当前 Local Message sender 实际将它作为 Kafka topic 使用。
+     */
     private String exchangeName;
 
+    /**
+     * 历史列名保留为 routing_key；当前 Local Message sender 实际将它作为 Kafka record key 使用。
+     */
     private String routingKey;
 
     private String payload;
@@ -43,8 +49,6 @@ public class LocalMessage {
     private LocalDateTime sentAt;
 
     private LocalDateTime confirmedAt;
-
-    private LocalDateTime returnedAt;
 
     private LocalDateTime deadAt;
 

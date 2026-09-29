@@ -260,7 +260,6 @@ CREATE TABLE local_message (
     last_error VARCHAR(512) NULL,
     sent_at DATETIME NULL,
     confirmed_at DATETIME NULL,
-    returned_at DATETIME NULL,
     dead_at DATETIME NULL,
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL,

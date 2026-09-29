@@ -21,8 +21,6 @@ public interface LocalMessageService {
                                     String routingKey,
                                     Object payload);
 
-    List<LocalMessage> selectPublishableMessages(LocalDateTime now, Integer limit);
-
     List<LocalMessage> claimPublishableMessages(LocalDateTime now, Integer limit);
 
     boolean tryMarkSending(LocalMessage message);
@@ -32,10 +30,6 @@ public interface LocalMessageService {
     void markConfirmed(String messageId);
 
     void markPublishFailed(LocalMessage message, String reason);
-
-    void markPublishFailedByMessageId(String messageId, String reason);
-
-    void markReturnedByMessageId(String messageId, String reason);
 
     List<LocalMessage> selectConfirmTimeoutMessages(LocalDateTime timeoutBefore, Integer limit);
 

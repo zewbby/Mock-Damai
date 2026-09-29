@@ -62,7 +62,7 @@ public class LocalMessageServiceImpl implements LocalMessageService {
      * 订单请求进入 QUEUED 前，先落一条 INIT 消息。即使应用随后宕机，发送器也能从 local_message 找回这条待发送消息。
      *
      * @param message 异步创建订单消息，requestId 是业务主键。
-     * @return local_message.message_id，用于后续 Publisher Confirm 和人工排查。
+     * @return local_message.message_id，用于后续 Kafka send callback 状态回写和人工排查。
      */
     @Override
     public String createAsyncCreateOrderMessage(AsyncCreateOrderMessage message) {
@@ -86,7 +86,7 @@ public class LocalMessageServiceImpl implements LocalMessageService {
      *
      * 订单创建成功后如果直接发送超时事件，一旦数据库事务提交后应用宕机、Kafka 短暂不可用，
      * 就会出现“订单存在但没有超时关闭消息”的风险，未支付订单会长期占住 locked_stock。
-     * 因此超时关闭消息也必须纳入 Outbox：先和订单状态一起落 local_message，再由发送器统一投递并等待 Publisher Confirm。
+     * 因此超时关闭消息也必须纳入 Outbox：先和订单状态一起落 local_message，再由发送器统一投递并等待 Kafka send callback。
      */
     @Override
     public String createOrderTimeoutCloseMessage(OrderTimeoutMessage message) {
@@ -121,16 +121,17 @@ public class LocalMessageServiceImpl implements LocalMessageService {
     private String createLocalMessage(String messageId,
                                       String businessType,
                                       String businessKey,
-                                      String exchangeName,
-                                      String routingKey,
+                                      String topic,
+                                      String partitionKey,
                                       Object payload) {
         LocalDateTime now = LocalDateTime.now();
         LocalMessage localMessage = new LocalMessage();
         localMessage.setMessageId(messageId);
         localMessage.setBusinessType(businessType);
         localMessage.setBusinessKey(businessKey);
-        localMessage.setExchangeName(exchangeName);
-        localMessage.setRoutingKey(routingKey);
+        // 数据库沿用历史 exchange_name / routing_key 列名；当前 sender 分别按 Kafka topic / record key 解释。
+        localMessage.setExchangeName(topic);
+        localMessage.setRoutingKey(partitionKey);
         localMessage.setPayload(toJson(payload));
         localMessage.setStatus(LocalMessageStatusEnum.INIT.getCode());
         localMessage.setRetryCount(0);
@@ -139,7 +140,6 @@ public class LocalMessageServiceImpl implements LocalMessageService {
         localMessage.setLastError(null);
         localMessage.setSentAt(null);
         localMessage.setConfirmedAt(null);
-        localMessage.setReturnedAt(null);
         localMessage.setDeadAt(null);
         localMessage.setCreatedAt(now);
         localMessage.setUpdatedAt(now);
@@ -156,11 +156,6 @@ public class LocalMessageServiceImpl implements LocalMessageService {
             return generateMessageId();
         }
         return "MSG" + requestId;
-    }
-
-    @Override
-    public List<LocalMessage> selectPublishableMessages(LocalDateTime now, Integer limit) {
-        return localMessageMapper.selectPublishableMessages(now, limit);
     }
 
     /**
@@ -224,24 +219,6 @@ public class LocalMessageServiceImpl implements LocalMessageService {
     }
 
     @Override
-    public void markPublishFailedByMessageId(String messageId, String reason) {
-        LocalMessage message = localMessageMapper.selectByMessageId(messageId);
-        if (message == null) {
-            return;
-        }
-        markPublishFailedByMessageId(message, reason, null);
-    }
-
-    @Override
-    public void markReturnedByMessageId(String messageId, String reason) {
-        LocalMessage message = localMessageMapper.selectByMessageId(messageId);
-        if (message == null) {
-            return;
-        }
-        markPublishFailedByMessageId(message, reason, LocalDateTime.now());
-    }
-
-    @Override
     public List<LocalMessage> selectConfirmTimeoutMessages(LocalDateTime timeoutBefore, Integer limit) {
         return localMessageMapper.selectConfirmTimeoutMessages(timeoutBefore, limit);
     }
@@ -278,22 +255,6 @@ public class LocalMessageServiceImpl implements LocalMessageService {
         if (rows != 1) {
             throw new BusinessException("消息不存在或当前状态不允许标记DEAD");
         }
-    }
-
-    private void markPublishFailedByMessageId(LocalMessage message,
-                                              String reason,
-                                              LocalDateTime returnedAt) {
-        LocalDateTime now = LocalDateTime.now();
-        int nextRetryCount = message.getRetryCount() + 1;
-        LocalDateTime deadAt = nextRetryCount >= message.getMaxRetryCount() ? now : null;
-        LocalDateTime nextRetryTime = deadAt == null ? calculateNextRetryTime(now, nextRetryCount) : null;
-        localMessageMapper.markPublishFailedByMessageId(
-                message.getMessageId(),
-                trimLastError(reason),
-                nextRetryTime,
-                deadAt,
-                returnedAt
-        );
     }
 
     private LocalDateTime calculateNextRetryTime(LocalDateTime now, int nextRetryCount) {
