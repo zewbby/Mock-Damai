@@ -394,6 +394,8 @@ CALL add_index_if_missing('ticket_order', 'idx_ticket_order_session_status', 'KE
 
 CALL add_index_if_missing('local_message', 'uk_local_message_message_id', 'UNIQUE KEY `uk_local_message_message_id` (`message_id`)');
 CALL add_index_if_missing('local_message', 'idx_local_message_status_updated_at', 'KEY `idx_local_message_status_updated_at` (`status`, `updated_at`)');
+-- 与 schema.sql 对齐，补齐 INIT/FAILED 待投递消息扫描索引。
+CALL add_index_if_missing('local_message', 'idx_local_message_publish_scan', 'KEY `idx_local_message_publish_scan` (`status`, `next_retry_time`, `created_at`)');
 CALL add_index_if_missing('local_message', 'idx_local_message_business', 'KEY `idx_local_message_business` (`business_type`, `business_key`)');
 
 UPDATE ticket_category
