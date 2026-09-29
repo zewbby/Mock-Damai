@@ -741,7 +741,7 @@ Trade-off
 - [x] Redis Lua 原子库存预扣
 - [x] 库存分桶与 The Porter
 - [x] RocketMQ 事务消息
-- [x] Kafka / Redis Stream / Outbox 可切换消息模式
+- [x] Kafka / Outbox 可选交易命令模式；Redis Stream 仅保留历史适配器，当前 Guardrail 禁止启用
 - [x] 消费者幂等与 DLQ
 - [x] 库存补偿、一致性巡检与对账
 - [x] 支付、取消、超时关闭
