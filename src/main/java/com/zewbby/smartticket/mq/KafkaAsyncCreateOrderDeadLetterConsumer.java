@@ -7,12 +7,12 @@ import com.zewbby.smartticket.service.AsyncOrderPartitionService;
 import com.zewbby.smartticket.service.DeadLetterMessageService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
 @Component
-@ConditionalOnProperty(prefix = "smart-ticket.async-order-submit", name = "publisher-mode", havingValue = "kafka")
+@ConditionalOnExpression("'${smart-ticket.async-order-submit.publisher-mode:outbox}'.equalsIgnoreCase('kafka') || ('${smart-ticket.async-order-submit.publisher-mode:outbox}'.equalsIgnoreCase('outbox') && ${smart-ticket.local-message.sender-enabled:true})")
 public class KafkaAsyncCreateOrderDeadLetterConsumer {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(KafkaAsyncCreateOrderDeadLetterConsumer.class);

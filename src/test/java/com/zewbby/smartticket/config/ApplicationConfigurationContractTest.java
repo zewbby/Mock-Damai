@@ -1,9 +1,12 @@
 package com.zewbby.smartticket.config;
 
+import com.zewbby.smartticket.mq.KafkaAsyncCreateOrderConsumer;
+import com.zewbby.smartticket.mq.KafkaAsyncCreateOrderDeadLetterConsumer;
 import com.zewbby.smartticket.mq.OrderTimeoutConsumer;
 import com.zewbby.smartticket.mq.RocketMqOrderTimeoutConsumer;
 import com.zewbby.smartticket.task.LocalMessagePublishTask;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 
@@ -41,7 +44,7 @@ class ApplicationConfigurationContractTest {
     }
 
     @Test
-    void kafkaOrderTimeoutConsumerRequiresDelayMessageAndKafkaMode() {
+    void kafkaOrderTimeoutConsumerRequiresDelayMessageAndKafkaBackedTransport() {
         ConditionalOnProperty[] conditions =
                 OrderTimeoutConsumer.class.getAnnotationsByType(ConditionalOnProperty.class);
 
@@ -50,10 +53,10 @@ class ApplicationConfigurationContractTest {
                         && Arrays.asList(condition.name()).contains("delay-message-enabled")
                         && "true".equals(condition.havingValue()));
 
-        assertThat(Arrays.stream(conditions)).anyMatch(condition ->
-                "smart-ticket.order-timeout".equals(condition.prefix())
-                        && Arrays.asList(condition.name()).contains("publisher-mode")
-                        && "kafka".equals(condition.havingValue()));
+        assertKafkaBackedExpression(
+                OrderTimeoutConsumer.class.getAnnotation(ConditionalOnExpression.class),
+                "smart-ticket.order-timeout.publisher-mode"
+        );
     }
 
     @Test
@@ -73,39 +76,15 @@ class ApplicationConfigurationContractTest {
     }
 
     @Test
-    void kafkaTypedInfrastructureFollowsOwningPublisherMode() {
-        assertKafkaBeanMode(
-                "asyncOrderKafkaTemplate",
-                "smart-ticket.async-order-submit",
-                "publisher-mode",
-                "kafka"
-        );
-        assertKafkaBeanMode(
-                "asyncCreateOrderTopic",
-                "smart-ticket.async-order-submit",
-                "publisher-mode",
-                "kafka"
-        );
-        assertKafkaBeanMode(
-                "asyncCreateOrderDeadLetterTopic",
-                "smart-ticket.async-order-submit",
-                "publisher-mode",
-                "kafka"
-        );
-        assertKafkaBeanMode(
-                "asyncOrderKafkaListenerContainerFactory",
-                "smart-ticket.async-order-submit",
-                "publisher-mode",
-                "kafka"
-        );
+    void kafkaInfrastructureCoversDirectKafkaAndActiveOutboxTransport() {
+        assertKafkaBackedBean("asyncOrderKafkaTemplate", "smart-ticket.async-order-submit.publisher-mode");
+        assertKafkaBackedBean("asyncCreateOrderTopic", "smart-ticket.async-order-submit.publisher-mode");
+        assertKafkaBackedBean("asyncCreateOrderDeadLetterTopic", "smart-ticket.async-order-submit.publisher-mode");
+        assertKafkaBackedBean("asyncOrderKafkaListenerContainerFactory", "smart-ticket.async-order-submit.publisher-mode");
+        assertKafkaBackedBean("orderTimeoutTopic", "smart-ticket.order-timeout.publisher-mode");
+
         assertKafkaBeanMode(
                 "orderTimeoutKafkaTemplate",
-                "smart-ticket.order-timeout",
-                "publisher-mode",
-                "kafka"
-        );
-        assertKafkaBeanMode(
-                "orderTimeoutTopic",
                 "smart-ticket.order-timeout",
                 "publisher-mode",
                 "kafka"
@@ -113,6 +92,32 @@ class ApplicationConfigurationContractTest {
 
         assertThat(kafkaConfigMethod("localMessageKafkaTemplate")
                 .getAnnotation(ConditionalOnProperty.class)).isNull();
+        assertThat(kafkaConfigMethod("localMessageKafkaTemplate")
+                .getAnnotation(ConditionalOnExpression.class)).isNull();
+
+        assertKafkaBackedExpression(
+                KafkaAsyncCreateOrderConsumer.class.getAnnotation(ConditionalOnExpression.class),
+                "smart-ticket.async-order-submit.publisher-mode"
+        );
+        assertKafkaBackedExpression(
+                KafkaAsyncCreateOrderDeadLetterConsumer.class.getAnnotation(ConditionalOnExpression.class),
+                "smart-ticket.async-order-submit.publisher-mode"
+        );
+    }
+
+    private void assertKafkaBackedBean(String methodName, String modeProperty) {
+        assertKafkaBackedExpression(
+                kafkaConfigMethod(methodName).getAnnotation(ConditionalOnExpression.class),
+                modeProperty
+        );
+    }
+
+    private void assertKafkaBackedExpression(ConditionalOnExpression condition, String modeProperty) {
+        assertThat(condition).isNotNull();
+        assertThat(condition.value()).contains(modeProperty);
+        assertThat(condition.value()).contains("kafka");
+        assertThat(condition.value()).contains("outbox");
+        assertThat(condition.value()).contains("smart-ticket.local-message.sender-enabled");
     }
 
     private void assertKafkaBeanMode(String methodName,

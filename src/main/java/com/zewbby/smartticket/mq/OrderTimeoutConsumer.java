@@ -2,6 +2,7 @@ package com.zewbby.smartticket.mq;
 
 import com.zewbby.smartticket.aop.MqConsumeTrace;
 import com.zewbby.smartticket.service.OrderService;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.slf4j.Logger;
@@ -12,7 +13,7 @@ import java.time.LocalDateTime;
 
 @Component
 @ConditionalOnProperty(prefix = "smart-ticket.order-timeout", name = "delay-message-enabled", havingValue = "true")
-@ConditionalOnProperty(prefix = "smart-ticket.order-timeout", name = "publisher-mode", havingValue = "kafka")
+@ConditionalOnExpression("'${smart-ticket.order-timeout.publisher-mode:kafka}'.equalsIgnoreCase('kafka') || ('${smart-ticket.order-timeout.publisher-mode:kafka}'.equalsIgnoreCase('outbox') && ${smart-ticket.local-message.sender-enabled:true})")
 public class OrderTimeoutConsumer {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(OrderTimeoutConsumer.class);
