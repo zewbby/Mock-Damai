@@ -74,7 +74,7 @@ POST /api/purchase-plans/{planId}/submit
 
 默认 `flash-sale` 交易命令链路是 RocketMQ Transaction Message。
 
-Kafka / Outbox 只有离开 `flash-sale` profile 后才能作为异步创单交易命令模式；Redis Stream publisher 已被当前 Guardrail 拒绝。Local Message 仍用于领域事件和部分可靠消息，因此 [admin-messages.http](admin-messages.http) 仍有当前运维价值。
+Kafka / Outbox 只有离开 `flash-sale` profile 后才能作为异步创单交易命令模式；Redis Stream publisher 已被当前 Guardrail 拒绝。Outbox 的下游仍是 Kafka Consumer（`local_message → Kafka → KafkaAsyncCreateOrderConsumer`），自动投递时需要 Local Message sender 开启。Local Message 仍用于领域事件和部分可靠消息，因此 [admin-messages.http](admin-messages.http) 仍有当前运维价值。
 
 ## 样例账号
 

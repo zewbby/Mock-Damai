@@ -51,6 +51,8 @@ flowchart LR
 
 因此，Outbox 和 Kafka 不能在 flash-sale profile 下替代 RocketMQ 承载抢票交易命令。它们只有在离开该 profile 并满足对应配置时才属于可选交易命令模式。
 
+这里的 Outbox 不是另一种 Broker：它只把入口发布改成先写 `local_message`，随后仍由 `LocalMessagePublishTask` 投递 Kafka，再由 `KafkaAsyncCreateOrderConsumer` 进入共享 Consumer Core。自动投递要求 `smart-ticket.local-message.sender-enabled=true`；测试 profile 可以关闭 sender 并手工投递本地消息。
+
 Redis Stream 相关实现和配置字段仍保留在代码中，但当前 publisher-mode 启动校验只接受 outbox、kafka、rocketmq，因此 Redis Stream 不应被描述为当前可启用的抢票发布模式。
 
 同时要区分另一条默认开启的路径：领域事件默认启用，OrderCreated、PaymentPaid、StockChanged 等事件通过 Local Message / Outbox 写入本地消息表，再由 LocalMessagePublishTask 投递 Kafka。这里的 Kafka 不是默认抢票交易命令通道，但仍属于默认领域事件链路。

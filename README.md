@@ -386,12 +386,12 @@ PENDING_PAYMENT -> CLOSED
 | --- | --- | --- |
 | 异步创单 | `rocketmq`（默认 flash-sale） | 事务消息、顺序消费、事务回查；flash-sale Guardrail 强制使用 |
 | 异步创单 | `kafka` | 仅在离开 flash-sale profile 后可作为交易命令模式 |
-| 异步创单 | `outbox` | 仅在离开 flash-sale profile 后可作为交易命令模式 |
+| 异步创单 | `outbox` | 仅在离开 flash-sale profile 后可用；`local_message → Kafka → Kafka Consumer`，不是独立 Broker 模式 |
 | 异步创单 | `redis-stream` | 历史实现仍保留，但当前 publisher-mode Guardrail 不允许启用 |
 | 超时关闭 | `rocketmq`（默认 flash-sale） | 延迟消息 + 定时扫描兜底 |
 | 领域事件 | Local Message → Kafka | 默认启用；承载订单、支付、库存领域事件 |
 
-切换消息模式前，需要同步准备对应中间件、Topic / Consumer Group 和监控配置。
+切换消息模式前，需要同步准备对应中间件、Topic / Consumer Group 和监控配置。Outbox 只改变发布侧的可靠提交方式：自动投递时仍依赖 Kafka，且需要 `smart-ticket.local-message.sender-enabled=true`；测试可关闭 sender 后手工消费 `local_message`。
 
 ---
 
