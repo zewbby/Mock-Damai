@@ -26,7 +26,8 @@ public class LocalMessageAsyncOrderMessagePublisher implements AsyncOrderMessage
     /**
      * 通过 local_message Outbox 链路提交异步下单消息。
      *
-     * 这里不直接调用 KafkaTemplate，而是只写本地消息表。发送器和超时扫描会负责后续投递状态机。
+     * 这里不直接调用 KafkaTemplate，而是只写本地消息表。LocalMessagePublishTask 的发送器和发送确认超时扫描
+     * 负责后续投递状态机。订单超时关闭扫描是另一条独立兜底链路，不属于这条 Outbox 发送状态机。
      * 这样订单服务只表达“我需要发布异步下单消息”，不依赖具体发送细节。
      */
     @Override

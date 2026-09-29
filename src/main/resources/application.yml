@@ -62,6 +62,8 @@ smart-ticket:
     confirm-timeout-seconds: ${SMART_TICKET_LOCAL_MESSAGE_CONFIRM_TIMEOUT_SECONDS:60}
     default-max-retry-count: ${SMART_TICKET_LOCAL_MESSAGE_MAX_RETRY_COUNT:5}
     mark-sent-enabled: ${SMART_TICKET_LOCAL_MESSAGE_MARK_SENT_ENABLED:false}
+    publish-fixed-delay-millis: ${SMART_TICKET_LOCAL_MESSAGE_PUBLISH_FIXED_DELAY_MILLIS:3000}
+    confirm-timeout-scan-fixed-delay-millis: ${SMART_TICKET_LOCAL_MESSAGE_CONFIRM_SCAN_FIXED_DELAY_MILLIS:10000}
   async-order-submit:
     persist-request-before-publish: ${SMART_TICKET_ASYNC_ORDER_PERSIST_REQUEST_BEFORE_PUBLISH:false}
     publisher-mode: ${SMART_TICKET_ASYNC_ORDER_PUBLISHER_MODE:rocketmq}

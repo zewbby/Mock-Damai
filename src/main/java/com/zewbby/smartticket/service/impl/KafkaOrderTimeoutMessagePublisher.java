@@ -3,6 +3,7 @@ package com.zewbby.smartticket.service.impl;
 import com.zewbby.smartticket.config.OrderTimeoutProperties;
 import com.zewbby.smartticket.mq.OrderTimeoutMessage;
 import com.zewbby.smartticket.service.OrderTimeoutMessagePublisher;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
@@ -19,8 +20,10 @@ public class KafkaOrderTimeoutMessagePublisher implements OrderTimeoutMessagePub
 
     private final OrderTimeoutProperties orderTimeoutProperties;
 
-    public KafkaOrderTimeoutMessagePublisher(KafkaTemplate<String, OrderTimeoutMessage> kafkaTemplate,
-                                             OrderTimeoutProperties orderTimeoutProperties) {
+    public KafkaOrderTimeoutMessagePublisher(
+            @Qualifier("orderTimeoutKafkaTemplate")
+            KafkaTemplate<String, OrderTimeoutMessage> kafkaTemplate,
+            OrderTimeoutProperties orderTimeoutProperties) {
         this.kafkaTemplate = kafkaTemplate;
         this.orderTimeoutProperties = orderTimeoutProperties;
     }

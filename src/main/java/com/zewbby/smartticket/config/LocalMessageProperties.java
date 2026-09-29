@@ -17,6 +17,10 @@ public class LocalMessageProperties {
 
     private boolean markSentEnabled = false;
 
+    private long publishFixedDelayMillis = 3000L;
+
+    private long confirmTimeoutScanFixedDelayMillis = 10000L;
+
     public boolean isSenderEnabled() {
         return senderEnabled;
     }
@@ -55,5 +59,21 @@ public class LocalMessageProperties {
 
     public void setMarkSentEnabled(boolean markSentEnabled) {
         this.markSentEnabled = markSentEnabled;
+    }
+
+    public long getPublishFixedDelayMillis() {
+        return publishFixedDelayMillis;
+    }
+
+    public void setPublishFixedDelayMillis(long publishFixedDelayMillis) {
+        this.publishFixedDelayMillis = publishFixedDelayMillis;
+    }
+
+    public long getConfirmTimeoutScanFixedDelayMillis() {
+        return confirmTimeoutScanFixedDelayMillis;
+    }
+
+    public void setConfirmTimeoutScanFixedDelayMillis(long confirmTimeoutScanFixedDelayMillis) {
+        this.confirmTimeoutScanFixedDelayMillis = confirmTimeoutScanFixedDelayMillis;
     }
 }
