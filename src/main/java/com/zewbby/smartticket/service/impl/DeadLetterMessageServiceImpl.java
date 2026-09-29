@@ -60,8 +60,8 @@ public class DeadLetterMessageServiceImpl implements DeadLetterMessageService {
     /**
      * 将消费失败消息落到 dead_letter_message。
      *
-     * DLT 或死信表不是“垃圾桶”，而是异常消息的工作台：我们保留原始 payload、业务主键、topic 信息和异常分类，
-     * 后续才能判断应该 retry、ignore 还是 resolve。只打日志会在高并发下被刷掉；只进 Kafka DLT 又不方便
+     * Broker DLT 或死信表不是“垃圾桶”，而是异常消息的工作台：我们保留原始 payload、业务主键、来源 channel 和异常分类，
+     * 后续才能判断应该 retry、ignore 还是 resolve。只打日志会在高并发下被刷掉；只留在 Broker DLT 又不方便
      * 和 ticket_order_request 的业务状态放在一起排查。
      */
     @Override
@@ -139,7 +139,7 @@ public class DeadLetterMessageServiceImpl implements DeadLetterMessageService {
      * 人工重试死信消息。
      *
      * 这里不直接调用消费者方法。正确做法是先检查 request 当前业务状态，
-     * 再走当前启用的 AsyncOrderMessagePublisher：Kafka 模式回 Kafka，Outbox 模式也会由本地消息发送器投递到 Kafka。
+     * 再走当前启用的 AsyncOrderMessagePublisher：RocketMQ / Kafka direct 回到对应 Broker，Outbox 则先写 local_message 再投递 Kafka。
      * 如果 request 已 SUCCESS，重试会制造重复订单风险；如果已经 COMPENSATED，说明 Redis 预扣已经释放，
      * 此时直接重投会绕过入口预扣语义，所以当前阶段拒绝重试，留给后续人工补偿流程处理。
      */

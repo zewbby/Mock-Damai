@@ -18,6 +18,7 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDateTime;
 
 @Component
+@ConditionalOnProperty(prefix = "smart-ticket.order-timeout", name = "delay-message-enabled", havingValue = "true")
 @ConditionalOnProperty(prefix = "smart-ticket.order-timeout", name = "publisher-mode", havingValue = "rocketmq")
 @RocketMQMessageListener(
         topic = "${smart-ticket.order-timeout.rocket-mq-order-timeout-topic}",
