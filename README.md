@@ -380,6 +380,8 @@ PENDING_PAYMENT -> CLOSED
 
 ## 消息模式
 
+高并发购票主链路只走 `POST /api/orders/async`；`POST /api/orders` 已废弃，仅保留本地调试和历史兼容。
+
 | 场景 | 模式 | 说明 |
 | --- | --- | --- |
 | 异步创单 | `rocketmq`（默认 flash-sale） | 事务消息、顺序消费、事务回查；flash-sale Guardrail 强制使用 |

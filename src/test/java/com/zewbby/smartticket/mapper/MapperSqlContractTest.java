@@ -330,7 +330,7 @@ class MapperSqlContractTest {
     void documentationUsesCurrentAsyncOrderAndPerformanceEntrypoints() throws Exception {
         String readme = Files.readString(Path.of("README.md"));
         String apiReadme = Files.readString(Path.of("docs/api/README.md"));
-        String performanceReadme = Files.readString(Path.of("docs/performance/README.md"));
+        String performanceReadme = Files.readString(Path.of("docs/performance-engineering/README.md"));
 
         assertThat(readme).contains("高并发购票主链路只走 `POST /api/orders/async`");
         assertThat(readme).contains("`POST /api/orders` 已废弃");

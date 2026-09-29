@@ -1,7 +1,10 @@
 spring:
   sql:
     init:
-      mode: never
+      # ApplicationReadyEvent 的缓存预热早于 @Sql(BEFORE_TEST_METHOD)，空库必须先初始化。
+      mode: always
+      schema-locations: file:docs/sql/schema.sql
+      data-locations: file:docs/sql/data.sql
 
 smart-ticket:
   # 集成测试不启动 Kafka/RocketMQ Broker。

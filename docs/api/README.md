@@ -8,6 +8,8 @@
 
 ## 当前链路
 
+普通抢票通过 `POST /api/orders/async` 提交，使用 `GET /api/order-requests/{requestId}` 查询结果。
+
 这些样例对应当前代码路径，优先按此顺序阅读或执行：
 
 1. [`phase1-auth-api.http`](phase1-auth-api.http)：注册和登录。
@@ -43,4 +45,4 @@
 - [`async-order-consumer-api.http`](async-order-consumer-api.http)
 - [`phase3-async-order-full-flow.http`](phase3-async-order-full-flow.http)
 
-这些样例中出现的请求体 `userId`、`POST /api/orders` 和直接支付入口属于旧阶段用法。新的压测和主链路验证必须使用带 Bearer token 的当前样例和 `/api/orders/async`。
+`POST /api/orders` 已废弃；这些样例中出现的请求体 `userId` 和直接支付入口属于旧阶段用法。新的压测和主链路验证必须使用带 Bearer token 的当前样例和 `/api/orders/async`。
