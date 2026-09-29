@@ -31,7 +31,7 @@ Authorization: Bearer {{adminToken}}
 POST {{baseUrl}}/api/admin/local-messages/{{messageId}}/retry
 Authorization: Bearer {{adminToken}}
 
-### 5. 人工标记 DEAD
+### 5. 人工标记 INIT / FAILED 为 DEAD（SENDING / SENT 不允许人工撤回）
 POST {{baseUrl}}/api/admin/local-messages/{{messageId}}/mark-dead
 Authorization: Bearer {{adminToken}}
 
@@ -44,6 +44,7 @@ GET {{baseUrl}}/api/admin/dead-letters/{{deadLetterId}}
 Authorization: Bearer {{adminToken}}
 
 ### 8. 人工重试 Dead Letter
+### 会重新走当前 AsyncOrderMessagePublisher：RocketMQ / Kafka direct 回对应 Broker，Outbox 才写 local_message。
 POST {{baseUrl}}/api/admin/dead-letters/{{deadLetterId}}/retry
 Authorization: Bearer {{adminToken}}
 

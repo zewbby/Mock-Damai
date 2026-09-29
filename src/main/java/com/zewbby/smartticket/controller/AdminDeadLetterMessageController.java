@@ -37,7 +37,8 @@ public class AdminDeadLetterMessageController {
      * 人工 retry 不是随便重投消息。
      *
      * 重试前服务层会检查 request 是否已经成功、是否已经补偿 Redis 库存、是否仍持有预扣语义；
-     * 通过后也只是重新写 local_message，让可靠消息发送器统一投递，避免人工接口绕过 Outbox 状态机。
+     * 通过后重新走当前启用的 AsyncOrderMessagePublisher：RocketMQ / Kafka direct 回到对应 Broker，
+     * Outbox 模式则重新写 local_message。管理接口本身不直接调用 Consumer Core。
      */
     @PostMapping("/{id}/retry")
     public ApiResponse<Void> retry(@PathVariable Long id) {

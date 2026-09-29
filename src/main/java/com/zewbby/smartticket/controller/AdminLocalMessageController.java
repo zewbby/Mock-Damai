@@ -38,7 +38,7 @@ public class AdminLocalMessageController {
     /**
      * 人工重试只把消息放回 INIT，不在接口线程里直接发送 MQ。
      *
-     * 这样所有自动重试和人工重试都会统一经过发送器、Publisher Confirm、ReturnCallback 和超时扫描，
+     * 这样所有自动重试和人工重试都会统一经过 Local Message sender、Kafka send callback 和发送确认超时扫描，
      * 避免人工接口绕过可靠投递状态机。
      */
     @PostMapping("/{messageId}/retry")
@@ -47,6 +47,10 @@ public class AdminLocalMessageController {
         return ApiResponse.success();
     }
 
+    /**
+     * 只允许把尚未投递成功的 INIT / FAILED 消息人工终止为 DEAD。
+     * SENDING / SENT 可能已经在 Broker 侧生效，管理接口不能假装能够撤回在途消息。
+     */
     @PostMapping("/{messageId}/mark-dead")
     public ApiResponse<Void> markDead(@PathVariable String messageId) {
         localMessageService.markDeadManually(messageId);

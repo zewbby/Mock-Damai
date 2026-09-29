@@ -19,7 +19,6 @@
         <result property="lastError" column="last_error"/>
         <result property="sentAt" column="sent_at"/>
         <result property="confirmedAt" column="confirmed_at"/>
-        <result property="returnedAt" column="returned_at"/>
         <result property="deadAt" column="dead_at"/>
         <result property="createdAt" column="created_at"/>
         <result property="updatedAt" column="updated_at"/>
@@ -40,7 +39,6 @@
         last_error,
         sent_at,
         confirmed_at,
-        returned_at,
         dead_at,
         created_at,
         updated_at
@@ -64,7 +62,6 @@
             last_error,
             sent_at,
             confirmed_at,
-            returned_at,
             dead_at,
             created_at,
             updated_at
@@ -82,7 +79,6 @@
             #{lastError},
             #{sentAt},
             #{confirmedAt},
-            #{returnedAt},
             #{deadAt},
             #{createdAt},
             #{updatedAt}
@@ -94,17 +90,6 @@
             <include refid="BaseColumns"/>
         FROM local_message
         WHERE message_id = #{messageId}
-    </select>
-
-    <select id="selectPublishableMessages" resultMap="LocalMessageResultMap">
-        SELECT
-            <include refid="BaseColumns"/>
-        FROM local_message
-        WHERE status IN ('INIT', 'FAILED')
-          AND retry_count &lt; max_retry_count
-          AND (next_retry_time IS NULL OR next_retry_time &lt;= #{now})
-        ORDER BY created_at ASC
-        LIMIT #{limit}
     </select>
 
     <select id="selectPublishableMessagesForUpdate" resultMap="LocalMessageResultMap">
@@ -190,29 +175,6 @@
           AND status IN ('SENDING', 'SENT')
     </update>
 
-    <update id="markPublishFailedByMessageId">
-        UPDATE local_message
-        SET
-            retry_count = retry_count + 1,
-            status = CASE
-                WHEN retry_count + 1 &gt;= max_retry_count THEN 'DEAD'
-                ELSE 'FAILED'
-            END,
-            next_retry_time = CASE
-                WHEN retry_count + 1 &gt;= max_retry_count THEN NULL
-                ELSE #{nextRetryTime}
-            END,
-            dead_at = CASE
-                WHEN retry_count + 1 &gt;= max_retry_count THEN #{deadAt}
-                ELSE dead_at
-            END,
-            returned_at = COALESCE(#{returnedAt}, returned_at),
-            last_error = #{lastError},
-            updated_at = NOW()
-        WHERE message_id = #{messageId}
-          AND status IN ('SENDING', 'SENT')
-    </update>
-
     <select id="selectConfirmTimeoutMessages" resultMap="LocalMessageResultMap">
         SELECT
             <include refid="BaseColumns"/>
@@ -251,7 +213,6 @@
             last_error = NULL,
             sent_at = NULL,
             confirmed_at = NULL,
-            returned_at = NULL,
             dead_at = NULL,
             updated_at = NOW()
         WHERE message_id = #{messageId}
@@ -267,6 +228,6 @@
             dead_at = #{deadAt},
             updated_at = NOW()
         WHERE message_id = #{messageId}
-          AND status IN ('INIT', 'FAILED', 'SENDING', 'SENT')
+          AND status IN ('INIT', 'FAILED')
     </update>
 </mapper>

@@ -339,8 +339,8 @@ CALL add_column_if_missing('ticket_category', 'status', 'varchar(32) NOT NULL DE
 CALL add_column_if_missing('user_account', 'role_code', 'varchar(32) NOT NULL DEFAULT ''USER''', 'status');
 
 CALL add_column_if_missing('local_message', 'confirmed_at', 'datetime NULL', 'sent_at');
-CALL add_column_if_missing('local_message', 'returned_at', 'datetime NULL', 'confirmed_at');
-CALL add_column_if_missing('local_message', 'dead_at', 'datetime NULL', 'returned_at');
+-- returned_at 是旧 RabbitMQ ReturnCallback 语义遗留；历史开发库若已存在可保留，但当前模型不再创建或使用。
+CALL add_column_if_missing('local_message', 'dead_at', 'datetime NULL', 'confirmed_at');
 
 CALL add_column_if_missing('stock_adjustment_record', 'confirmed_at', 'datetime NULL', 'confirm_token');
 CALL add_column_if_missing('stock_adjustment_record', 'rollback_available', 'tinyint(1) NOT NULL DEFAULT 0', 'confirmed_at');

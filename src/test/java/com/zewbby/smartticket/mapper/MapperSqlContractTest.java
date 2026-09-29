@@ -292,17 +292,20 @@ class MapperSqlContractTest {
     @Test
     void localMessageSqlContainsReliableOutboxStatusesAndConfirmTimeoutIndex() throws Exception {
         String schema = Files.readString(Path.of("docs/sql/schema.sql"));
+        String repair = Files.readString(Path.of("docs/sql/local-schema-repair.sql"));
         String localMessageXml = Files.readString(Path.of("src/main/resources/mapper/LocalMessageMapper.xml"));
         String businessTypeEnum = Files.readString(Path.of("src/main/java/com/zewbby/smartticket/enums/LocalMessageBusinessTypeEnum.java"));
         String timeoutProducer = Files.readString(Path.of("src/main/java/com/zewbby/smartticket/mq/OrderTimeoutProducer.java"));
         String rocketMqAsyncConsumer = Files.readString(Path.of("src/main/java/com/zewbby/smartticket/mq/RocketMqAsyncCreateOrderConsumer.java"));
 
         assertThat(schema).contains("confirmed_at DATETIME NULL");
-        assertThat(schema).contains("returned_at DATETIME NULL");
+        assertThat(schema).doesNotContain("returned_at DATETIME NULL");
+        assertThat(repair).doesNotContain("add_column_if_missing('local_message', 'returned_at'");
         assertThat(schema).contains("dead_at DATETIME NULL");
         assertThat(schema).contains("KEY idx_status_updated_at (status, updated_at)");
         assertThat(schema).contains("KEY idx_local_message_publish_scan (status, next_retry_time, created_at)");
         assertThat(localMessageXml).contains("status IN ('INIT', 'FAILED')");
+        assertThat(localMessageXml).doesNotContain("<select id=\"selectPublishableMessages\"");
         assertThat(localMessageXml).contains("<select id=\"selectPublishableMessagesForUpdate\"");
         assertThat(localMessageXml).contains("FOR UPDATE SKIP LOCKED");
         assertThat(localMessageXml).contains("<update id=\"markSendingBatch\"");
@@ -311,6 +314,10 @@ class MapperSqlContractTest {
         assertThat(localMessageXml).contains("status = 'CONFIRMED'");
         assertThat(localMessageXml).contains("status IN ('SENDING', 'SENT')");
         assertThat(localMessageXml).contains("retry_count = retry_count + 1");
+        assertThat(localMessageXml).doesNotContain("<update id=\"markPublishFailedByMessageId\">");
+        assertThat(localMessageXml).containsPattern(
+                "(?s)<update id=\"markDeadByMessageId\">.*?AND status IN \\('INIT', 'FAILED'\\).*?</update>"
+        );
         assertThat(businessTypeEnum).contains("ORDER_TIMEOUT_CLOSE");
         assertThat(timeoutProducer).contains("OrderTimeoutMessagePublisher");
         assertThat(timeoutProducer).contains("orderTimeoutMessagePublisher.publish(message)");
