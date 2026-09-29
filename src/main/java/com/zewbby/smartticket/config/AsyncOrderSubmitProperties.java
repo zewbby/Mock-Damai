@@ -26,7 +26,8 @@ public class AsyncOrderSubmitProperties {
     /**
      * 异步下单消息发布模式。
      *
-     * outbox: 写 local_message，再由本地消息发送器可靠投递 Kafka；只能在非 flash-sale 场景使用。
+     * outbox: 写 local_message，再由本地消息发送器可靠投递 Kafka，并由 Kafka Consumer 进入共享创单核心；
+     * 只能在非 flash-sale 场景使用。
      * redis-stream: legacy experimental adapter，代码与测试仍保留，但当前 Guardrail 不允许选择该模式。
      * kafka: 入口直接写 Kafka topic；只能在非 flash-sale 场景使用。
      * rocketmq: 入口写 RocketMQ topic；flash-sale profile 强制使用该模式并开启事务消息。
