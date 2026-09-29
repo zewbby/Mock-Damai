@@ -2,6 +2,10 @@
 
 `.http` 文件供 IntelliJ HTTP Client 等工具执行；`phase2-api.md` 是历史说明。当前服务默认地址为 `http://localhost:8081`，需要登录的请求必须先替换 token 变量。
 
+## 消息模式边界
+
+默认 `flash-sale` 交易命令链路使用 RocketMQ Transaction Message。Kafka / Outbox 只有离开 `flash-sale` profile 后才能作为异步创单交易命令模式，Redis Stream publisher 已被当前 Guardrail 拒绝。Outbox 的下游仍是 Kafka Consumer（`local_message → Kafka → KafkaAsyncCreateOrderConsumer`），自动投递时需要 Local Message sender 开启。领域事件默认通过 Local Message 投递 Kafka。
+
 ## 当前链路
 
 这些样例对应当前代码路径，优先按此顺序阅读或执行：

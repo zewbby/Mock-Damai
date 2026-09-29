@@ -15,7 +15,7 @@
 ![MySQL](https://img.shields.io/badge/MySQL-8.0-blue)
 ![Redis](https://img.shields.io/badge/Redis-6%2B-red)
 ![RocketMQ](https://img.shields.io/badge/RocketMQ-Default-blue)
-![Kafka](https://img.shields.io/badge/Kafka-Optional-black)
+![Kafka](https://img.shields.io/badge/Kafka-Domain%20Events-black)
 
 </div>
 
@@ -369,8 +369,8 @@ PENDING_PAYMENT -> CLOSED
 | Distributed Cache | Redis |
 | Local Cache | Caffeine |
 | Default MQ | RocketMQ |
-| Optional MQ | Kafka |
-| Optional Queue | Redis Stream |
+| Domain Event MQ | Kafka |
+| Legacy Adapter | Redis Stream（当前 Guardrail 禁止作为 publisher-mode） |
 | Reliable Message | Local Message / Outbox |
 | Observability | Micrometer / Spring Boot Actuator |
 | Testing | JUnit 5 / Testcontainers |
@@ -382,14 +382,14 @@ PENDING_PAYMENT -> CLOSED
 
 | 场景 | 模式 | 说明 |
 | --- | --- | --- |
-| 异步创单 | `rocketmq`（默认） | 事务消息、顺序消费、事务回查 |
-| 异步创单 | `kafka` | 按业务键分区，支持 Retry / DLT |
-| 异步创单 | `redis-stream` | Consumer Group 消费 |
-| 异步创单 | `outbox` | 本地消息表 + 定时投递 |
-| 超时关闭 | `rocketmq`（默认） | 延迟消息 + 定时扫描兜底 |
-| 领域事件 | 本地消息表 | 订单、支付、库存事件可靠投递 |
+| 异步创单 | `rocketmq`（默认 flash-sale） | 事务消息、顺序消费、事务回查；flash-sale Guardrail 强制使用 |
+| 异步创单 | `kafka` | 仅在离开 flash-sale profile 后可作为交易命令模式 |
+| 异步创单 | `outbox` | 仅在离开 flash-sale profile 后可用；`local_message → Kafka → Kafka Consumer`，不是独立 Broker 模式 |
+| 异步创单 | `redis-stream` | 历史实现仍保留，但当前 publisher-mode Guardrail 不允许启用 |
+| 超时关闭 | `rocketmq`（默认 flash-sale） | 延迟消息 + 定时扫描兜底 |
+| 领域事件 | Local Message → Kafka | 默认启用；承载订单、支付、库存领域事件 |
 
-切换消息模式前，需要同步准备对应中间件、Topic / Consumer Group 和监控配置。
+切换消息模式前，需要同步准备对应中间件、Topic / Consumer Group 和监控配置。Outbox 只改变发布侧的可靠提交方式：自动投递时仍依赖 Kafka，且需要 `smart-ticket.local-message.sender-enabled=true`；测试可关闭 sender 后手工消费 `local_message`。
 
 ---
 
@@ -403,7 +403,7 @@ PENDING_PAYMENT -> CLOSED
 - Redis 6+
 - RocketMQ NameServer 与 Broker
 
-Kafka 仅在主动切换到 Kafka 模式时需要。
+默认 flash-sale 抢票交易命令不使用 Kafka；但领域事件默认开启，并通过 Local Message 投递 Kafka。若本地不启动 Kafka，应显式关闭领域事件相关能力后再进行仅抢票主链路验证。
 
 ### 2. 克隆项目
 
@@ -740,7 +740,7 @@ Trade-off
 - [x] Redis Lua 原子库存预扣
 - [x] 库存分桶与 The Porter
 - [x] RocketMQ 事务消息
-- [x] Kafka / Redis Stream / Outbox 可切换消息模式
+- [x] Kafka / Outbox 可选交易命令模式；Redis Stream 仅保留历史适配器，当前 Guardrail 禁止启用
 - [x] 消费者幂等与 DLQ
 - [x] 库存补偿、一致性巡检与对账
 - [x] 支付、取消、超时关闭

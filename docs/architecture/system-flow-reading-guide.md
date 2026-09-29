@@ -20,7 +20,7 @@
   -> 支付成功确认库存，超时/取消释放库存
 ```
 
-`local_message` Outbox 和 Kafka 用于可选的可靠投递路径（领域事件或兼容模式命令），默认交易命令不走该路径，不能与 RocketMQ 交易链路混为一谈。
+`local_message` Outbox 和 Kafka 用于可靠投递路径：领域事件默认走该链路，兼容交易命令只有离开 `flash-sale` profile 后才能使用。Outbox 只改变发布侧，自动投递仍是 `local_message → Kafka → Kafka Consumer`，不能与默认 RocketMQ 交易链路混为一谈。
 
 最重要的阅读原则：不要从所有 controller 一口气看起。先看下单主链路，再看可靠消息和补偿，最后看后台、库存治理、观测指标。
 
@@ -43,7 +43,7 @@
 - `smart-ticket.*` 下的业务配置：限流、Outbox、MQ 消费者、库存分桶、等待室、支付签名。
 - Redis key 的命名边界：库存、幂等 token、等待室 token、限流、soldout、预扣记录。
 - RocketMQ topic、consumer group、延迟级别，以及按票档/库存桶路由的业务键。
-- Kafka topic 和 consumer group 仅服务于 Outbox/领域事件时的分区消费。
+- Kafka topic 和 consumer group 服务于领域事件、Outbox 下游消费，以及离开 `flash-sale` 后显式选择的 Kafka direct 兼容交易命令。
 
 读完这一组，你应该知道系统依赖什么中间件，以及每类业务状态大概落在哪里。
 
@@ -204,9 +204,9 @@
 2. 事务提交后触发发送。
 3. 定时任务扫描 `INIT`、`FAILED` 等可发送消息。
 4. 发送前通过条件更新抢占 `SENDING`，防止多实例重复发。
-5. `KafkaTemplate` 发送后进入 `SENT`。
-6. Kafka Broker 确认成功后进入确认状态。
-7. 失败、Return、Confirm 超时会进入重试或 DEAD。
+5. 默认不强制写 `SENT` 中间态，消息通常保持 `SENDING`。
+6. Kafka send callback 成功后直接进入 `CONFIRMED`；如显式开启 `mark-sent-enabled` 才保留 `SENT`。
+7. 发送失败或发送确认超时会进入重试，超过上限后进入 `DEAD`。
 
 这部分解决的是“数据库事务成功但消息发送失败”的一致性问题。代价是多了一张消息表和额外 DB 写入，所以它适合领域事件和兼容模式，不应替代默认的 RocketMQ 交易命令链路。
 
@@ -226,7 +226,7 @@
 - 默认异步下单使用 RocketMQ 事务消息，消费者使用集群顺序消费和有限重试。
 - RocketMQ 普通发送使用活动、票档和库存桶组成的业务键，保证同一局部键的处理顺序。
 - 订单超时使用 RocketMQ 延迟消息，定时扫描任务只负责兜底。
-- 支付补偿也使用 RocketMQ 顺序消息，重试耗尽后写 `dead_letter_message`。
+- 支付补偿使用 RocketMQ 顺序消息并依赖 Broker 重试；当前应用代码不会在该消费者重试耗尽后自动写 `dead_letter_message`。
 - Kafka 只承载 Outbox/领域事件或兼容模式命令；同一条交易命令不能同时写 Kafka 和 RocketMQ。
 
 ### 第 9 步：看消费者如何创建正式订单
@@ -530,4 +530,4 @@ AsyncCreateOrderConsumer 收到消息
 
 ## 一句话总览
 
-SmartTicket Lite 的核心不是“下单接口直接扣库”，而是“入口限流和 Redis 预扣拿资格，RocketMQ 事务消息驱动异步创单，消费者最终扣 MySQL 并创建订单，支付和超时关闭完成库存闭环；Kafka 只负责可选领域事件，后台治理负责异常补偿”。
+Mock-Damai 的核心不是“下单接口直接扣库”，而是“入口限流和 Redis 预扣拿资格，RocketMQ 事务消息驱动默认异步创单，消费者最终扣 MySQL 并创建订单，支付和超时关闭完成库存闭环；Kafka 默认承载领域事件，也承载 Outbox 下游与非 flash-sale 的兼容交易命令，后台治理负责异常补偿”。
