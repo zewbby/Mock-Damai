@@ -180,7 +180,8 @@ class MapperSqlContractTest {
     @Test
     void paymentSqlContainsPaymentOrderTableAndIdempotentStatusConditions() throws Exception {
         String schema = Files.readString(Path.of("docs/sql/schema.sql"));
-        String paymentXml = Files.readString(Path.of("src/main/resources/mapper/PaymentMapper.xml"));
+        String paymentXml = Files.readString(Path.of("src/main/resources/mapper/PaymentMapper.xml"))
+                .replace("\r\n", "\n");
 
         assertThat(schema).contains("CREATE TABLE payment_order");
         assertThat(schema).contains("CREATE TABLE payment_callback_log");
