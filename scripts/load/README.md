@@ -51,6 +51,18 @@ THREADS=128 ./scripts/load/run-preflight-jmeter.sh
 
 Preflight 默认 Ramp-up 10s、Warm-up 20s、Measure 40s。只有前一档仍明显增长时才继续更高线程。
 
+
+### Runtime Auth（Mac 不落盘用户数据）
+
+当压测机不允许保存用户 CSV/JWT 时，使用 runtime-auth 计划：
+
+```bash
+USER_PASSWORD='<压测用户统一密码>' BASE_URL=http://<WIN_IP>:8081 THREADS=32 \\
+./scripts/load/run-preflight-runtime-auth-jmeter.sh
+```
+
+该模式在 setUp 阶段登录 Windows 端已存在的压测用户，JWT 仅保存在 JMeter JVM 内存中；不生成用户 CSV，不把 JWT 写入 JTL。用户账号仍由 Windows 端的 MySQL 保存。当前先用于 Preflight；正式 Target-Rate 在确定 `Q_probe_peak` 后再切换对应 runtime-auth runner。
+
 ## Formal Target-Rate
 
 由 `Q_probe_peak` 决定正式起点：
