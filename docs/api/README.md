@@ -1,48 +1,88 @@
 # API 调试索引
 
-`.http` 文件供 IntelliJ HTTP Client 等工具执行；`phase2-api.md` 是历史说明。当前服务默认地址为 `http://localhost:8081`，需要登录的请求必须先替换 token 变量。
+`docs/api/` 只保留当前接口样例，并按业务领域组织，不再按历史开发 Phase 命名。
+
+这些文件面向 IntelliJ IDEA HTTP Client。默认地址：
+
+```text
+http://localhost:8081
+```
+
+本地执行前先确认应用、MySQL、Redis、RocketMQ 已启动。默认 `local,flash-sale` profile 下 Waiting Room 开启，因此普通异步抢票必须先获得 `admissionToken`；完整流程见 [order.http](order.http)。
+
+## 当前文件
+
+| 文件 | 用途 |
+| --- | --- |
+| [auth.http](auth.http) | 注册、登录、当前用户和退出登录 |
+| [show.http](show.http) | 演出、场次和票档查询 |
+| [artist-ranking.http](artist-ranking.http) | 演出搜索和艺人热榜 |
+| [purchase-plan.http](purchase-plan.http) | 实名观演人、预约计划、开售后提交 |
+| [order.http](order.http) | Waiting Room、幂等 Token、异步抢票、结果查询和取消 |
+| [payment.http](payment.http) | 创建 / 查询支付单和 mock 回调 |
+| [admin-stock.http](admin-stock.http) | 库存预热、一致性检查和补偿 |
+| [admin-messages.http](admin-messages.http) | Local Message 与 Dead Letter 运维 |
+| [ops.http](ops.http) | Actuator、容量评估、元数据预热和降级 |
+
+## 当前主链路
+
+普通抢票通过 `POST /api/orders/async` 提交，使用 `GET /api/order-requests/{requestId}` 查询结果：
+
+```text
+登录
+  ↓
+进入 Waiting Room
+  ↓
+管理员 / 流控侧发放 admissionToken
+  ↓
+获取一次性 Idempotency Token
+  ↓
+POST /api/orders/async
+  ↓
+RocketMQ Transaction Message
+  ↓
+异步消费者创建正式订单
+  ↓
+GET /api/order-requests/{requestId}
+```
+
+预约抢票：
+
+```text
+创建观演人
+  ↓
+创建 / 编辑 / 完成 Purchase Plan
+  ↓
+开售后取得 admissionToken + idempotencyToken
+  ↓
+POST /api/purchase-plans/{planId}/submit
+  ↓
+进入同一异步创单链路
+```
+
+## 已废弃兼容接口
+
+以下 Controller 路径仍可能存在，但不再提供当前调试样例：
+
+- `POST /api/orders`：同步下单，已废弃；
+- `POST /api/orders/{id}/pay`：绕过 `payment_order` 的旧支付入口，已废弃；
+- `GET /api/users/{userId}/orders`：旧路径，会忽略 path 中的 userId，只返回当前登录用户订单。
+
+历史 `phase1-*`、`phase2-*`、`phase3-*`、`phase4-*`、`phase5-*` 文件已经从当前文档树移除。需要追溯旧流程时使用 Git 历史。
 
 ## 消息模式边界
 
-默认 `flash-sale` 交易命令链路使用 RocketMQ Transaction Message。Kafka / Outbox 只有离开 `flash-sale` profile 后才能作为异步创单交易命令模式，Redis Stream publisher 已被当前 Guardrail 拒绝。Outbox 的下游仍是 Kafka Consumer（`local_message → Kafka → KafkaAsyncCreateOrderConsumer`），自动投递时需要 Local Message sender 开启。领域事件默认通过 Local Message 投递 Kafka。
+默认 `flash-sale` 交易命令链路是 RocketMQ Transaction Message。
 
-## 当前链路
+Kafka / Outbox 只有离开 `flash-sale` profile 后才能作为异步创单交易命令模式；Redis Stream publisher 已被当前 Guardrail 拒绝。Outbox 的下游仍是 Kafka Consumer（`local_message → Kafka → KafkaAsyncCreateOrderConsumer`），自动投递时需要 Local Message sender 开启。Local Message 仍用于领域事件和部分可靠消息，因此 [admin-messages.http](admin-messages.http) 仍有当前运维价值。
 
-普通抢票通过 `POST /api/orders/async` 提交，使用 `GET /api/order-requests/{requestId}` 查询结果。
+## 样例账号
 
-这些样例对应当前代码路径，优先按此顺序阅读或执行：
+`docs/sql/data.sql` 当前提供：
 
-1. [`phase1-auth-api.http`](phase1-auth-api.http)：注册和登录。
-2. [`show.http`](show.http)：演出列表和详情。
-3. [`artist-ranking.http`](artist-ranking.http)：演出搜索与艺人热榜。
-4. [`show-cache-api.http`](show-cache-api.http)：演出查询缓存。
-5. [`user.http`](user.http)：登录后查询当前用户资料。
-6. [`purchase-plan.http`](purchase-plan.http)：实名观演人、预约计划及开售后的抢票提交。
-7. [`async-order-submit-api.http`](async-order-submit-api.http)：普通异步下单入口和幂等 token。
-8. [`async-order-result-api.http`](async-order-result-api.http)：按 `requestId` 查询异步处理结果和正式订单。
-9. [`phase4-idempotency-token-api.http`](phase4-idempotency-token-api.http)：幂等 token 的成功、重复和错误用例；其中同步下单步骤仅用于兼容调试。
-10. [`phase5-redis-stock-api.http`](phase5-redis-stock-api.http)：Redis 预扣和库存治理。
-11. [`phase2-stock-consistency-api.http`](phase2-stock-consistency-api.http)：Redis/MySQL 库存一致性。
-12. [`phase5-reliable-message-api.http`](phase5-reliable-message-api.http)：本地消息表与可靠事件管理；异步创单的 Outbox 验证仅适用于切换到 Outbox 模式，默认 RocketMQ 模式走事务消息。
-13. [`phase2-consumer-dlq-api.http`](phase2-consumer-dlq-api.http)：死信查询和人工处理。
-14. [`phase4-rate-limit-api.http`](phase4-rate-limit-api.http)：限流和下单保护。
-15. [`phase4-actuator-and-cost.http`](phase4-actuator-and-cost.http)：Actuator 和运营指标。
-16. [`stock-preheat-api.http`](stock-preheat-api.http)：后台库存预热。
-17. [`order-timeout-api.http`](order-timeout-api.http)：异步订单超时关闭验证。
+```text
+USER  13800000001 / Test123456
+ADMIN 13800000002 / Test123456
+```
 
-## 历史兼容与调试
-
-这些文件保留为旧阶段实现对照。部分请求缺少现行鉴权或幂等参数，不能直接用于当前服务的主链路验证：
-
-- [`order.http`](order.http)
-- [`order-relation-validation-api.http`](order-relation-validation-api.http)
-- [`order-status-api.http`](order-status-api.http)
-- [`order-submit-guard-api.http`](order-submit-guard-api.http)
-- [`phase1-order-permission-api.http`](phase1-order-permission-api.http)
-- [`phase1-payment-api.http`](phase1-payment-api.http)
-- [`phase2-api.md`](phase2-api.md)
-- [`phase2-full-flow.http`](phase2-full-flow.http)
-- [`async-order-consumer-api.http`](async-order-consumer-api.http)
-- [`phase3-async-order-full-flow.http`](phase3-async-order-full-flow.http)
-
-`POST /api/orders` 已废弃；这些样例中出现的请求体 `userId` 和直接支付入口属于旧阶段用法。新的压测和主链路验证必须使用带 Bearer token 的当前样例和 `/api/orders/async`。
+这些只用于本地 / 测试数据，不应作为真实环境账号。

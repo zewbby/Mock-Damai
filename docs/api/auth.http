@@ -1,0 +1,38 @@
+@baseUrl = http://localhost:8081
+@userPhone = 13800000001
+@userPassword = Test123456
+
+### 1. 使用本地样例用户登录
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "phone": "{{userPhone}}",
+  "password": "{{userPassword}}"
+}
+
+> {%
+  client.global.set("userToken", response.body.data.token);
+%}
+
+### 2. 查询当前用户
+GET {{baseUrl}}/api/users/me
+Authorization: Bearer {{userToken}}
+
+### 3. 可选：注册新用户
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "username": "api_user",
+  "phone": "13900000001",
+  "password": "Test123456"
+}
+
+### 4. 退出登录
+POST {{baseUrl}}/api/auth/logout
+Authorization: Bearer {{userToken}}
+
+### 5. logout 后继续访问应失败
+GET {{baseUrl}}/api/users/me
+Authorization: Bearer {{userToken}}

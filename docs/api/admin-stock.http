@@ -1,0 +1,60 @@
+@baseUrl = http://localhost:8081
+@ticketCategoryId = 2
+@recordId = 1
+
+### 0. 管理员登录
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "phone": "13800000002",
+  "password": "Test123456"
+}
+
+> {%
+  client.global.set("adminToken", response.body.data.token);
+%}
+
+### 1. 当前推荐：按票档预热 MySQL 库存到 Redis / Bucket
+POST {{baseUrl}}/api/admin/ticket-categories/{{ticketCategoryId}}/stock/preheat
+Authorization: Bearer {{adminToken}}
+
+### 2. 查看库存总览
+GET {{baseUrl}}/api/admin/stocks
+Authorization: Bearer {{adminToken}}
+
+### 3. 查询 Redis 可售库存
+GET {{baseUrl}}/api/admin/stocks/{{ticketCategoryId}}/redis
+Authorization: Bearer {{adminToken}}
+
+### 4. 查询 Redis / MySQL 当前一致性视图
+GET {{baseUrl}}/api/admin/stocks/{{ticketCategoryId}}/consistency
+Authorization: Bearer {{adminToken}}
+
+### 5. 主动执行单票档一致性检查
+POST {{baseUrl}}/api/admin/stocks/consistency/check/{{ticketCategoryId}}
+Authorization: Bearer {{adminToken}}
+
+### 6. 批量检查
+POST {{baseUrl}}/api/admin/stocks/consistency/check-all?batchSize=100
+Authorization: Bearer {{adminToken}}
+
+### 7. 查询待处理差异记录
+GET {{baseUrl}}/api/admin/stocks/consistency-records?status=PENDING&limit=20
+Authorization: Bearer {{adminToken}}
+
+### 8. 修复差异记录
+POST {{baseUrl}}/api/admin/stocks/consistency-records/{{recordId}}/repair
+Authorization: Bearer {{adminToken}}
+
+### 9. 忽略差异记录
+POST {{baseUrl}}/api/admin/stocks/consistency-records/{{recordId}}/ignore
+Authorization: Bearer {{adminToken}}
+
+### 10. 扫描并补偿 FAILED 异步请求的 Redis 预扣
+POST {{baseUrl}}/api/admin/stocks/failed-requests/compensate?batchSize=100
+Authorization: Bearer {{adminToken}}
+
+### 说明
+### /api/admin/stocks/{ticketCategoryId}/preload 仍是当前 Controller 能力，
+### 但普通联调优先使用 /api/admin/ticket-categories/{id}/stock/preheat，避免两套预热入口在样例中并列。

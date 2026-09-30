@@ -23,7 +23,7 @@
 
 ## 项目简介
 
-Mock-Damai 是一个面向高并发票务场景的后端工程，项目内部服务名为 **SmartTicket Lite**。
+Mock-Damai 是一个面向高并发票务场景的后端工程。
 
 它不以普通 CRUD 为核心，而是重点模拟热门演唱会、体育赛事等开售瞬间，大量用户竞争有限库存时会遇到的典型问题：
 
@@ -81,9 +81,9 @@ flowchart LR
     AUTH --> RISK
     RISK --> WAIT
     WAIT --> IDEM
-    IDEM --> REDIS
-    REDIS --> ORCH
+    IDEM --> ORCH
     ORCH --> MQ
+    MQ -. "Local Transaction: Redis Lua Pre-deduct" .-> REDIS
     MQ --> CONSUMER
     CONSUMER --> ORDER
     ORDER --> MYSQL
@@ -116,9 +116,11 @@ POST /api/orders/async
   ↓
 等待室 / 在途容量控制
   ↓
-Redis Lua 原子预扣
+发送 RocketMQ Transaction Half Message
   ↓
-RocketMQ 事务消息
+RocketMQ 本地事务内执行 Redis Lua 原子预扣并写事务标记
+  ↓
+RocketMQ Transaction Message Commit
   ↓
 异步消费者幂等抢占
   ↓
@@ -370,7 +372,7 @@ PENDING_PAYMENT -> CLOSED
 | Local Cache | Caffeine |
 | Default MQ | RocketMQ |
 | Domain Event MQ | Kafka |
-| Legacy Adapter | Redis Stream（当前 Guardrail 禁止作为 publisher-mode） |
+| Historical Queue Path | Redis Stream |
 | Reliable Message | Local Message / Outbox |
 | Observability | Micrometer / Spring Boot Actuator |
 | Testing | JUnit 5 / Testcontainers |
@@ -379,8 +381,6 @@ PENDING_PAYMENT -> CLOSED
 ---
 
 ## 消息模式
-
-高并发购票主链路只走 `POST /api/orders/async`；`POST /api/orders` 已废弃，仅保留本地调试和历史兼容。
 
 | 场景 | 模式 | 说明 |
 | --- | --- | --- |
@@ -410,7 +410,7 @@ PENDING_PAYMENT -> CLOSED
 ### 2. 克隆项目
 
 ```bash
-git clone https://github.com/zhubaozhenshuai666-lang/Mock-Damai.git
+git clone https://github.com/zewbby/Mock-Damai.git
 cd Mock-Damai
 ```
 
@@ -426,11 +426,7 @@ mysql -h 127.0.0.1 -P 3306 -u root -p smart_ticket_lite < docs/sql/schema.sql
 mysql -h 127.0.0.1 -P 3306 -u root -p smart_ticket_lite < docs/sql/data.sql
 ```
 
-如需补充索引，请先检查目标库现有索引，再执行：
-
-```text
-docs/sql/performance-indexes.sql
-```
+`schema.sql` 已包含当前新库所需索引，不再额外执行独立 performance-indexes 脚本。旧本地库升级和 SQL 文件职责见 [docs/sql/README.md](docs/sql/README.md)。
 
 ### 4. 本地配置
 
@@ -496,6 +492,9 @@ curl http://127.0.0.1:8081/actuator/health
 ```text
 /api/admin/**
 ```
+
+> `POST /api/orders` 已废弃，仅保留本地调试 / 历史兼容；高并发购票主链路只走 `POST /api/orders/async`。  
+> `POST /api/orders/{id}/pay` 同样是已废弃兼容入口，支付主链路使用 `payment_order`：先调用 `POST /api/payments/create`，再处理支付回调。
 
 ---
 
@@ -568,7 +567,7 @@ scripts/jmeter/
 scripts/load/
 ```
 
-当前性能工程阶段的测试口径、Baseline 设计和实验记录统一维护在 [docs/performance-engineering/](docs/performance-engineering/README.md)。
+当前性能工程阶段的测试口径、Baseline 设计和实验记录见 [docs/performance-engineering/README.md](docs/performance-engineering/README.md)。
 
 重点关注：
 

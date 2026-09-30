@@ -1,0 +1,61 @@
+@baseUrl = http://localhost:8081
+@messageId = replace-with-local-message-id
+@deadLetterId = 1
+
+### 0. 管理员登录
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "phone": "13800000002",
+  "password": "Test123456"
+}
+
+> {%
+  client.global.set("adminToken", response.body.data.token);
+%}
+
+### 1. 查询 Local Message
+GET {{baseUrl}}/api/admin/local-messages?limit=20
+Authorization: Bearer {{adminToken}}
+
+### 2. 查询 FAILED Local Message
+GET {{baseUrl}}/api/admin/local-messages?status=FAILED&limit=20
+Authorization: Bearer {{adminToken}}
+
+### 3. 查询单条 Local Message
+GET {{baseUrl}}/api/admin/local-messages/{{messageId}}
+Authorization: Bearer {{adminToken}}
+
+### 4. 将 FAILED / DEAD Local Message 重新置为可发送状态
+POST {{baseUrl}}/api/admin/local-messages/{{messageId}}/retry
+Authorization: Bearer {{adminToken}}
+
+### 5. 人工标记 INIT / FAILED 为 DEAD（SENDING / SENT 不允许人工撤回）
+POST {{baseUrl}}/api/admin/local-messages/{{messageId}}/mark-dead
+Authorization: Bearer {{adminToken}}
+
+### 6. 查询 Dead Letter
+GET {{baseUrl}}/api/admin/dead-letters?status=PENDING&limit=20
+Authorization: Bearer {{adminToken}}
+
+### 7. 查询单条 Dead Letter
+GET {{baseUrl}}/api/admin/dead-letters/{{deadLetterId}}
+Authorization: Bearer {{adminToken}}
+
+### 8. 人工重试 Dead Letter
+### 会重新走当前 AsyncOrderMessagePublisher：RocketMQ / Kafka direct 回对应 Broker，Outbox 才写 local_message。
+POST {{baseUrl}}/api/admin/dead-letters/{{deadLetterId}}/retry
+Authorization: Bearer {{adminToken}}
+
+### 9. 忽略 Dead Letter
+POST {{baseUrl}}/api/admin/dead-letters/{{deadLetterId}}/ignore
+Authorization: Bearer {{adminToken}}
+
+### 10. 标记已解决
+POST {{baseUrl}}/api/admin/dead-letters/{{deadLetterId}}/resolve
+Authorization: Bearer {{adminToken}}
+
+### 消息模式边界
+### 默认 flash-sale 的异步创单命令走 RocketMQ Transaction Message，不通过 local_message。
+### Local Message 仍用于领域事件和其他可靠消息；切换到 Outbox 交易命令模式时才会承载异步创单命令。
