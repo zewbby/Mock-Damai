@@ -16,25 +16,27 @@
 
 ```bash
 mysql -h 127.0.0.1 -P 3306 -u root -p -e '
-CREATE DATABASE IF NOT EXISTS smart_ticket_lite
+CREATE DATABASE IF NOT EXISTS mock_damai
   DEFAULT CHARACTER SET utf8mb4
   DEFAULT COLLATE utf8mb4_0900_ai_ci;'
 
-mysql -h 127.0.0.1 -P 3306 -u root -p smart_ticket_lite < docs/sql/schema.sql
-mysql -h 127.0.0.1 -P 3306 -u root -p smart_ticket_lite < docs/sql/data.sql
+mysql -h 127.0.0.1 -P 3306 -u root -p mock_damai < docs/sql/schema.sql
+mysql -h 127.0.0.1 -P 3306 -u root -p mock_damai < docs/sql/data.sql
 ```
 
 `schema.sql` 是破坏性脚本。不要对需要保留数据的数据库执行。
 
 ## 旧本地库升级
 
-只有明确需要保留本地旧数据时才使用：
+只有明确需要保留本地旧数据时才使用。项目更名前的历史开发库通常名为 `smart_ticket_lite`；如果你的旧库仍使用该名称，可直接执行：
 
 ```bash
 MYSQL_PWD='你的MySQL密码' \
 mysql --protocol=TCP -h 127.0.0.1 -P 3306 -u root \
   -D smart_ticket_lite < docs/sql/local-schema-repair.sql
 ```
+
+如果本地旧库已经改名，则把 `-D smart_ticket_lite` 替换为实际数据库名。
 
 执行前先备份。
 
