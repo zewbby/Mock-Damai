@@ -35,6 +35,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.function.BooleanSupplier;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -195,7 +196,11 @@ public abstract class BaseIntegrationTest {
                 "quantity", 1,
                 "idempotencyToken", idempotencyToken
         ), bearerToken);
+        assertThat(submitResponse.at("/code").asInt(-1))
+                .as("异步下单应被接受，实际响应: %s", submitResponse)
+                .isZero();
         String requestId = submitResponse.at("/data/requestId").asText();
+        assertThat(requestId).as("异步下单响应应包含 requestId").isNotBlank();
 
         int delivered = deliverAsyncCreateOrderOutboxOnce();
         if (delivered < 1) {

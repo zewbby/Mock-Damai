@@ -59,7 +59,9 @@ class PaymentLifecycleIntegrationTest extends BaseIntegrationTest {
                 paidOrderId
         )).isEqualTo("PAID");
 
-        Long cancelledOrderId = submitAsyncOrderAndWaitSuccess(token, 2L);
+        // 同一用户同一票档的提交 Guard 保留 10 秒；用另一票档验证独立的取消链路。
+        adminBusinessService.preheatStock(1L);
+        Long cancelledOrderId = submitAsyncOrderAndWaitSuccess(token, 1L);
         String cancelledPaymentNo = createPayment(token, cancelledOrderId);
         JsonNode cancelResponse = postJson("/api/orders/" + cancelledOrderId + "/cancel", Map.of(), token);
         assertThat(cancelResponse.at("/data/status").asText()).isEqualTo("CANCELLED");
