@@ -99,6 +99,16 @@ POST /api/orders/async
 
 `reset-load-test-env.sh` 不再按 `bucket_version=1` 自己分配 bucket。它清理交易状态和目标票档旧 bucket 后，调用当前库存初始化接口，让应用按实际 `activeVersion + defaultBucketCount` 重建并预热。
 
+当前本地压测基线默认为 `mock_damai` 数据库、票档 `2`、库存 `10000`。首次使用前设置数据库和后台密码；之后每轮压测结束直接执行重置命令：
+
+```bash
+export SMART_TICKET_DB_PASSWORD='<本地数据库密码>'
+export SMART_TICKET_ADMIN_PASSWORD='<本地管理员密码>'
+CONFIRM_RESET=YES ./scripts/load/reset-load-test-env.sh
+```
+
+需要临时使用其他数据库、票档或库存时，可通过 `DB_NAME`、`TICKET_CATEGORY_ID`、`RESET_STOCK_QUANTITY` 覆盖默认值。脚本会清理交易表和相关 Redis 压测状态，保留压测用户与生成的 CSV。
+
 Capacity Baseline 默认保留生成好的 CSV；Flash-Sale admissionToken 是一次性的，每轮仍必须重新生成。
 
 ## Flash-Sale Sold-Out Flood
