@@ -81,7 +81,7 @@ smart-ticket:
     kafka-async-create-order-topic: ${SMART_TICKET_ASYNC_ORDER_KAFKA_TOPIC:smart-ticket.async-order.create}
     kafka-async-create-order-dead-letter-topic: ${SMART_TICKET_ASYNC_ORDER_KAFKA_DLT_TOPIC:smart-ticket.async-order.create.DLT}
     kafka-async-create-order-consumer-group: ${SMART_TICKET_ASYNC_ORDER_KAFKA_CONSUMER_GROUP:smart-ticket-async-order-create}
-    rocket-mq-async-create-order-topic: ${SMART_TICKET_ASYNC_ORDER_ROCKETMQ_TOPIC:smart-ticket.async-order.create}
+    rocket-mq-async-create-order-topic: ${SMART_TICKET_ASYNC_ORDER_ROCKETMQ_TOPIC:mock-damai-async-order-create}
     rocket-mq-async-create-order-consumer-group: ${SMART_TICKET_ASYNC_ORDER_ROCKETMQ_CONSUMER_GROUP:smart-ticket-async-order-create}
   mq-consumer:
     max-retry-count: ${SMART_TICKET_MQ_CONSUMER_MAX_RETRY_COUNT:3}
