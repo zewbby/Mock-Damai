@@ -109,6 +109,10 @@ CONFIRM_RESET=YES ./scripts/load/reset-load-test-env.sh
 
 需要临时使用其他数据库、票档或库存时，可通过 `DB_NAME`、`TICKET_CATEGORY_ID`、`RESET_STOCK_QUANTITY` 覆盖默认值。脚本会清理交易表和相关 Redis 压测状态，保留压测用户与生成的 CSV。
 
+Redis 使用 Docker 时不需要在宿主机安装 `redis-cli`。脚本会优先使用宿主机命令；找不到时，按映射到 `REDIS_PORT`（默认 `6379`）的容器自动执行容器内的 `redis-cli`。如果该端口对应多个容器，通过 `REDIS_CONTAINER_NAME=<容器名>` 明确指定。
+
+Windows Git Bash 找不到 `mysql` 时，脚本会自动查找 `C:\Program Files\MySQL\MySQL Server *\bin\mysql.exe`；非标准安装路径可通过 `MYSQL_BIN=<mysql.exe路径>` 指定。
+
 Capacity Baseline 默认保留生成好的 CSV；Flash-Sale admissionToken 是一次性的，每轮仍必须重新生成。
 
 ## Flash-Sale Sold-Out Flood

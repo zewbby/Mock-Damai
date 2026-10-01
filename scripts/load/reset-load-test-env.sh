@@ -17,6 +17,8 @@ REDIS_HOST="${REDIS_HOST:-127.0.0.1}"
 REDIS_PORT="${REDIS_PORT:-6379}"
 REDIS_DATABASE="${REDIS_DATABASE:-0}"
 REDIS_PASSWORD="${REDIS_PASSWORD:-${SMART_TICKET_REDIS_PASSWORD:-}}"
+REDIS_CONTAINER_NAME="${REDIS_CONTAINER_NAME:-}"
+REDIS_CONTAINER_PORT="${REDIS_CONTAINER_PORT:-6379}"
 DELETE_GENERATED_CSV="${DELETE_GENERATED_CSV:-false}"
 
 if [[ "$CONFIRM_RESET" != "YES" ]]; then
@@ -35,7 +37,7 @@ if [[ -z "$DB_PASSWORD" ]]; then
   echo "缺少数据库密码：SMART_TICKET_DB_PASSWORD"
   exit 1
 fi
-for cmd in mysql redis-cli jq curl; do
+for cmd in jq curl; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
     echo "缺少命令：$cmd"
     exit 1
@@ -46,11 +48,48 @@ if [[ "$RESET_STOCK" == "true" && -z "$ADMIN_PASSWORD" ]]; then
   exit 1
 fi
 
+mysql_bin="${MYSQL_BIN:-}"
+if [[ -z "$mysql_bin" ]]; then
+  if command -v mysql >/dev/null 2>&1; then
+    mysql_bin="$(command -v mysql)"
+  else
+    mysql_candidates=(/c/Program\ Files/MySQL/MySQL\ Server\ */bin/mysql.exe)
+    if [[ "${#mysql_candidates[@]}" -ne 1 || ! -x "${mysql_candidates[0]}" ]]; then
+      echo "缺少命令：mysql；请将 mysql 加入 PATH 或设置 MYSQL_BIN"
+      exit 1
+    fi
+    mysql_bin="${mysql_candidates[0]}"
+  fi
+fi
+
 export MYSQL_PWD="$DB_PASSWORD"
-mysql_cmd=(mysql --protocol=TCP -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -D "$DB_NAME")
-redis_cmd=(redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" -n "$REDIS_DATABASE")
+mysql_cmd=("$mysql_bin" --protocol=TCP -h "$DB_HOST" -P "$DB_PORT" -u "$DB_USER" -D "$DB_NAME")
+
+if command -v redis-cli >/dev/null 2>&1; then
+  redis_cmd=(redis-cli -h "$REDIS_HOST" -p "$REDIS_PORT" -n "$REDIS_DATABASE")
+  echo "Redis 客户端：使用宿主机 redis-cli。"
+else
+  if ! command -v docker >/dev/null 2>&1; then
+    echo "缺少命令：redis-cli；同时未找到 docker，无法使用容器内 redis-cli"
+    exit 1
+  fi
+  if [[ -z "$REDIS_CONTAINER_NAME" ]]; then
+    mapfile -t redis_containers < <(docker ps --filter "publish=${REDIS_PORT}" --format '{{.Names}}')
+    if [[ "${#redis_containers[@]}" -ne 1 ]]; then
+      echo "无法按宿主机端口 ${REDIS_PORT} 唯一确定 Redis 容器，请设置 REDIS_CONTAINER_NAME"
+      exit 1
+    fi
+    REDIS_CONTAINER_NAME="${redis_containers[0]}"
+  fi
+  redis_cmd=(docker exec -i "$REDIS_CONTAINER_NAME" redis-cli -p "$REDIS_CONTAINER_PORT" -n "$REDIS_DATABASE")
+  echo "Redis 客户端：使用 Docker 容器 ${REDIS_CONTAINER_NAME} 内的 redis-cli。"
+fi
 if [[ -n "$REDIS_PASSWORD" ]]; then
   redis_cmd+=(--no-auth-warning -a "$REDIS_PASSWORD")
+fi
+if ! "${redis_cmd[@]}" PING >/dev/null 2>&1; then
+  echo "Redis 连接失败，请检查 Redis 容器、端口和密码配置"
+  exit 1
 fi
 
 echo "1. 清理 MySQL 压测交易数据..."
