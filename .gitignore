@@ -38,3 +38,4 @@ build/
 
 ### Local sensitive config ###
 src/main/resources/application-local.yml
+deploy/windows/.env.local

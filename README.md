@@ -397,6 +397,8 @@ PENDING_PAYMENT -> CLOSED
 
 ## Quick Start
 
+Windows 换电脑部署入口见 [环境清单与迁移步骤](docs/performance-engineering/baseline-environment.md#7-windows-换电脑部署2026-10-10)。提供 Docker Compose 和 PowerShell 启动脚本，自动初始化干净数据库。
+
 ### 1. 环境要求
 
 - JDK 21
@@ -418,12 +420,12 @@ cd Mock-Damai
 
 ```bash
 mysql -h 127.0.0.1 -P 3306 -u root -p -e '
-CREATE DATABASE IF NOT EXISTS smart_ticket_lite
+CREATE DATABASE IF NOT EXISTS mock_damai
   DEFAULT CHARACTER SET utf8mb4
   DEFAULT COLLATE utf8mb4_0900_ai_ci;'
 
-mysql -h 127.0.0.1 -P 3306 -u root -p smart_ticket_lite < docs/sql/schema.sql
-mysql -h 127.0.0.1 -P 3306 -u root -p smart_ticket_lite < docs/sql/data.sql
+mysql -h 127.0.0.1 -P 3306 -u root -p mock_damai < docs/sql/schema.sql
+mysql -h 127.0.0.1 -P 3306 -u root -p mock_damai < docs/sql/data.sql
 ```
 
 `schema.sql` 已包含当前新库所需索引，不再额外执行独立 performance-indexes 脚本。旧本地库升级和 SQL 文件职责见 [docs/sql/README.md](docs/sql/README.md)。
