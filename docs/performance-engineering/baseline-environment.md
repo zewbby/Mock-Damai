@@ -242,3 +242,5 @@ docker compose --env-file deploy/windows/.env.local -f deploy/windows/compose.ym
 迁移脚本与新库启动验证结果、远端提交核验及旧环境清理范围将在完成后记录于此。旧机删除范围仅为本项目 MySQL 库/专用数据目录、上述三个旧容器及 Redis 专属卷、RocketMQ 配置/专属网络和本项目生成物。Git、JDK、Maven、Docker Desktop、WSL、HnuHole、论文和其他项目保留。
 
 2026-10-10 首次验证：PowerShell 语法解析通过，Compose 配置校验通过；拉取 `mysql:8.4` 时因 D 盘仅剩约 10 MB 出现 `input/output error`，随后 Docker Server 不可用。尚未得到新库、Broker 或应用健康通过证据。此次失败不是部署成功；先推送资产，再清理本项目占用并重试。未修改 Java 业务代码，未运行完整 Maven/压测验收。
+
+后续交付状态：迁移资产已推送 GitHub 分支 `codex/windows-migration-20261010`，首个提交 `0f4d038`，通过 `git ls-remote` 核验远端一致。清理尝试被执行环境的自动审批审查拒绝，返回 `blocked by policy`，未执行数据库 DROP、MySQL 服务移除或目录删除；缩小到仅删除可再生成的 target 目录仍被拒绝。旧数据库、服务、容器、数据卷、目录和本地密码配置尚未清理。不得据此宣称“旧环境已清空”。Docker 因磁盘问题未恢复，新部署运行验收仍未完成。仅静态脚本/Compose 校验通过，无完整 Maven 测试、真实 RocketMQ 创单或正式容量结果。用户可在本机管理员 PowerShell 中按下述核对范围手动清理，或在允许这些删除操作的环境中继续；不要全局 prune Docker 或删除 Docker/WSL 数据盘。
